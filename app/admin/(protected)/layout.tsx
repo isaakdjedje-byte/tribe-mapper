@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { getIronSession } from 'iron-session';
 import { getSessionOptions, SessionData } from '@/lib/auth';
 
-export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+export default async function ProtectedAdminLayout({ children }: { children: React.ReactNode }) {
   // In Next.js 16 App Router, cookies() is async and must be awaited
   const cookieStore = await cookies();
   
