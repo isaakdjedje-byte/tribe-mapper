@@ -7,11 +7,28 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // In Next.js 16 App Router, cookies() is async and must be awaited
   const cookieStore = await cookies();
   
+  // Build cookie header string manually from cookie store
+  // cookieStore.toString() returns "[object Object]" which breaks iron-session
+  const cookieEntries: string[] = [];
+  try {
+    // Get all cookies from the store
+    const allCookies = cookieStore.getAll();
+    for (const cookie of allCookies) {
+      cookieEntries.push(`${cookie.name}=${encodeURIComponent(cookie.value)}`);
+    }
+  } catch (e) {
+    // If getAll fails, try getting just the session cookie
+    const sessionCookie = cookieStore.get('tribe_mapper_session');
+    if (sessionCookie) {
+      cookieEntries.push(`${sessionCookie.name}=${encodeURIComponent(sessionCookie.value)}`);
+    }
+  }
+  const cookieHeader = cookieEntries.join('; ');
+  
   // Create minimal request-like object for iron-session
-  // This wraps the Next.js 16 cookie store in the format iron-session expects
   const req = {
     headers: {
-      cookie: cookieStore.toString(),
+      cookie: cookieHeader,
     },
   };
   
