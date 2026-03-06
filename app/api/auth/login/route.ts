@@ -4,6 +4,7 @@ import { sessionOptions, SessionData } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
+    // Create response that iron-session will modify with session cookie
     const res = NextResponse.json({});
     const session = await getIronSession<SessionData>(request, res, sessionOptions);
     const { password } = await request.json();
@@ -18,7 +19,14 @@ export async function POST(request: NextRequest) {
     if (password === adminPassword) {
       (session as SessionData).isAdmin = true;
       await session.save();
-      return NextResponse.json({ success: true });
+      // IMPORTANT: Copy the Set-Cookie header from the modified response
+      // iron-session sets the session cookie header on res
+      const setCookieHeader = res.headers.get('set-cookie');
+      const successRes = NextResponse.json({ success: true });
+      if (setCookieHeader) {
+        successRes.headers.set('Set-Cookie', setCookieHeader);
+      }
+      return successRes;
     }
 
     return NextResponse.json({ error: 'Invalid password' }, { status: 401 });
