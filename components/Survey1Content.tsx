@@ -4,73 +4,6 @@ import { useState, useEffect } from 'react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 
-const QUESTIONS = [
-  { id: 'a1_name', section: 'Identity', question: 'What should we call you?', description: 'Your name or nickname in the system', type: 'text', placeholder: 'Your name', required: false },
-  { id: 'a2_role', section: 'Identity', question: 'How would you describe your role?', description: 'What you actually do day-to-day', type: 'textarea', placeholder: 'e.g., I coordinate between teams, handle logistics, etc.', required: true },
-  { id: 'a3_duration', section: 'Identity', question: 'How long have you been part of this group?', type: 'single', required: true, options: [
-    { value: 'less_3mo', label: 'Less than 3 months' },
-    { value: '3mo_1yr', label: '3–12 months' },
-    { value: '1yr_2yr', label: '1–2 years' },
-    { value: '2yr_5yr', label: '2–5 years' },
-    { value: '5yr_plus', label: '5+ years' }
-  ]},
-  { id: 'b1_trust', section: 'Relationships', question: 'Who do you trust most?', description: 'Up to 5 people you rely on', type: 'nominate', required: true, maxSelections: 5 },
-  { id: 'b2_collaboration', section: 'Relationships', question: 'Who do you work with most closely?', type: 'nominate', required: true, maxSelections: 8 },
-  { id: 'b3_influence', section: 'Relationships', question: 'Whose opinions sway decisions?', type: 'nominate', required: true, maxSelections: 5 },
-  { id: 'b4_conflicts', section: 'Relationships', question: 'Anyone you find difficult to work with?', description: 'Optional — private and confidential', type: 'nominate', required: false, maxSelections: 5 },
-  { id: 'c1_decision', section: 'Behavior', question: 'How are major decisions made?', type: 'single', required: true, options: [
-    { value: 'leader_decides', label: 'Leaders decide', description: 'One or two people make the call' },
-    { value: 'consensus', label: 'Consensus', description: 'Everyone discusses until agreement' },
-    { value: 'vote', label: 'Voting', description: 'Majority rules' },
-    { value: 'organic', label: 'Emerges organically', description: 'No explicit process' }
-  ]},
-  { id: 'c2_conflict', section: 'Behavior', question: 'How are disagreements handled?', type: 'single', required: true, options: [
-    { value: 'avoid', label: 'Avoided', description: 'Swept under the rug' },
-    { value: 'mediate', label: 'Mediated', description: 'Third party helps resolve' },
-    { value: 'confront', label: 'Direct', description: 'Those involved work it out' },
-    { value: 'escalate', label: 'Escalated', description: 'Leaders step in' }
-  ]},
-  { id: 'c3_initiative', section: 'Behavior', question: 'How do new projects start?', type: 'single', required: true, options: [
-    { value: 'permission', label: 'Require permission', description: 'Leadership approval needed' },
-    { value: 'volunteers', label: 'Volunteers form teams', description: 'Natural collaboration' },
-    { value: 'anyone', label: 'Anyone can start', description: 'No formal process' },
-    { value: 'committee', label: 'Committee evaluation', description: 'Structured assessment' }
-  ]},
-  { id: 'c4_information', section: 'Behavior', question: 'How does information flow?', type: 'single', required: true, options: [
-    { value: 'top_down', label: 'Top-down', description: 'Leaders announce to group' },
-    { value: 'hubs', label: 'Through key people', description: 'Certain individuals spread it' },
-    { value: 'network', label: 'Network', description: 'Many conversations' },
-    { value: 'chaos', label: 'Chaotic', description: 'Unclear, sometimes late' }
-  ]},
-  { id: 'd1_values', section: 'Values', question: 'What matters most to this group?', description: 'Select exactly 3', type: 'multi', required: true, minSelections: 3, maxSelections: 3, options: [
-    { value: 'quality', label: 'Quality & Excellence' },
-    { value: 'speed', label: 'Speed & Results' },
-    { value: 'community', label: 'Community & Belonging' },
-    { value: 'innovation', label: 'Innovation' },
-    { value: 'stability', label: 'Stability' },
-    { value: 'autonomy', label: 'Autonomy' },
-    { value: 'impact', label: 'Impact' },
-    { value: 'fairness', label: 'Fairness' }
-  ]},
-  { id: 'd2_language', section: 'Values', question: 'What phrases would an outsider not understand?', type: 'textarea', placeholder: 'Inside jokes, project codenames, etc.', required: true },
-  { id: 'd3_experiences', section: 'Values', question: 'What moments define this group?', type: 'textarea', placeholder: 'Launches, crises, retreats...', required: true },
-  { id: 'd4_vision', section: 'Values', question: 'What should the group work toward?', type: 'textarea', placeholder: 'Where should we be in 1 year?', required: true },
-  { id: 'e1_health', section: 'Reflection', question: 'How is the group doing overall?', type: 'scale', required: true, options: [
-    { value: '1', label: 'Struggling' },
-    { value: '2', label: 'Challenged' },
-    { value: '3', label: 'Stable' },
-    { value: '4', label: 'Growing' },
-    { value: '5', label: 'Thriving' }
-  ]},
-  { id: 'e2_influence', section: 'Reflection', question: 'How much influence do you have?', type: 'scale', required: true, options: [
-    { value: '1', label: 'Minimal' },
-    { value: '2', label: 'Some' },
-    { value: '3', label: 'Moderate' },
-    { value: '4', label: 'High' },
-    { value: '5', label: 'Very High' }
-  ]}
-];
-
 export default function Survey1Content({ token }: { token: string }) {
   const { t } = useLanguage();
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -82,6 +15,200 @@ export default function Survey1Content({ token }: { token: string }) {
   const [showConsent, setShowConsent] = useState(true);
   const [consentGiven, setConsentGiven] = useState(false);
   const [knownMembers, setKnownMembers] = useState<{id: string; display_name: string}[]>([]);
+
+  // Define questions with translation keys
+  const QUESTIONS = [
+    { 
+      id: 'a1_name', 
+      section: t.survey1.sections.identity, 
+      question: t.survey1.questions.a1_name.question, 
+      description: t.survey1.questions.a1_name.description, 
+      type: 'text' as const, 
+      placeholder: t.survey1.questions.a1_name.placeholder, 
+      required: false 
+    },
+    { 
+      id: 'a2_role', 
+      section: t.survey1.sections.identity, 
+      question: t.survey1.questions.a2_role.question, 
+      description: t.survey1.questions.a2_role.description, 
+      type: 'textarea' as const, 
+      placeholder: t.survey1.questions.a2_role.placeholder, 
+      required: true 
+    },
+    { 
+      id: 'a3_duration', 
+      section: t.survey1.sections.identity, 
+      question: t.survey1.questions.a3_duration.question, 
+      type: 'single' as const, 
+      required: true, 
+      options: [
+        { value: 'less_3mo', label: t.survey1.options.duration.less_3mo },
+        { value: '3mo_1yr', label: t.survey1.options.duration['3mo_1yr'] },
+        { value: '1yr_2yr', label: t.survey1.options.duration['1yr_2yr'] },
+        { value: '2yr_5yr', label: t.survey1.options.duration['2yr_5yr'] },
+        { value: '5yr_plus', label: t.survey1.options.duration['5yr_plus'] }
+      ]
+    },
+    { 
+      id: 'b1_trust', 
+      section: t.survey1.sections.relationships, 
+      question: t.survey1.questions.b1_trust.question, 
+      description: t.survey1.questions.b1_trust.description, 
+      type: 'nominate' as const, 
+      required: true, 
+      maxSelections: 5 
+    },
+    { 
+      id: 'b2_collaboration', 
+      section: t.survey1.sections.relationships, 
+      question: t.survey1.questions.b2_collaboration.question, 
+      type: 'nominate' as const, 
+      required: true, 
+      maxSelections: 8 
+    },
+    { 
+      id: 'b3_influence', 
+      section: t.survey1.sections.relationships, 
+      question: t.survey1.questions.b3_influence.question, 
+      type: 'nominate' as const, 
+      required: true, 
+      maxSelections: 5 
+    },
+    { 
+      id: 'b4_conflicts', 
+      section: t.survey1.sections.relationships, 
+      question: t.survey1.questions.b4_conflicts.question, 
+      description: t.survey1.questions.b4_conflicts.description, 
+      type: 'nominate' as const, 
+      required: false, 
+      maxSelections: 5 
+    },
+    { 
+      id: 'c1_decision', 
+      section: t.survey1.sections.behavior, 
+      question: t.survey1.questions.c1_decision.question, 
+      type: 'single' as const, 
+      required: true, 
+      options: [
+        { value: 'leader_decides', label: t.survey1.options.decision.leader_decides.label, description: t.survey1.options.decision.leader_decides.description },
+        { value: 'consensus', label: t.survey1.options.decision.consensus.label, description: t.survey1.options.decision.consensus.description },
+        { value: 'vote', label: t.survey1.options.decision.vote.label, description: t.survey1.options.decision.vote.description },
+        { value: 'organic', label: t.survey1.options.decision.organic.label, description: t.survey1.options.decision.organic.description }
+      ]
+    },
+    { 
+      id: 'c2_conflict', 
+      section: t.survey1.sections.behavior, 
+      question: t.survey1.questions.c2_conflict.question, 
+      type: 'single' as const, 
+      required: true, 
+      options: [
+        { value: 'avoid', label: t.survey1.options.conflict.avoid.label, description: t.survey1.options.conflict.avoid.description },
+        { value: 'mediate', label: t.survey1.options.conflict.mediate.label, description: t.survey1.options.conflict.mediate.description },
+        { value: 'confront', label: t.survey1.options.conflict.confront.label, description: t.survey1.options.conflict.confront.description },
+        { value: 'escalate', label: t.survey1.options.conflict.escalate.label, description: t.survey1.options.conflict.escalate.description }
+      ]
+    },
+    { 
+      id: 'c3_initiative', 
+      section: t.survey1.sections.behavior, 
+      question: t.survey1.questions.c3_initiative.question, 
+      type: 'single' as const, 
+      required: true, 
+      options: [
+        { value: 'permission', label: t.survey1.options.initiative.permission.label, description: t.survey1.options.initiative.permission.description },
+        { value: 'volunteers', label: t.survey1.options.initiative.volunteers.label, description: t.survey1.options.initiative.volunteers.description },
+        { value: 'anyone', label: t.survey1.options.initiative.anyone.label, description: t.survey1.options.initiative.anyone.description },
+        { value: 'committee', label: t.survey1.options.initiative.committee.label, description: t.survey1.options.initiative.committee.description }
+      ]
+    },
+    { 
+      id: 'c4_information', 
+      section: t.survey1.sections.behavior, 
+      question: t.survey1.questions.c4_information.question, 
+      type: 'single' as const, 
+      required: true, 
+      options: [
+        { value: 'top_down', label: t.survey1.options.information.top_down.label, description: t.survey1.options.information.top_down.description },
+        { value: 'hubs', label: t.survey1.options.information.hubs.label, description: t.survey1.options.information.hubs.description },
+        { value: 'network', label: t.survey1.options.information.network.label, description: t.survey1.options.information.network.description },
+        { value: 'chaos', label: t.survey1.options.information.chaos.label, description: t.survey1.options.information.chaos.description }
+      ]
+    },
+    { 
+      id: 'd1_values', 
+      section: t.survey1.sections.values, 
+      question: t.survey1.questions.d1_values.question, 
+      description: t.survey1.questions.d1_values.description, 
+      type: 'multi' as const, 
+      required: true, 
+      minSelections: 3, 
+      maxSelections: 3, 
+      options: [
+        { value: 'quality', label: t.survey1.options.values.quality },
+        { value: 'speed', label: t.survey1.options.values.speed },
+        { value: 'community', label: t.survey1.options.values.community },
+        { value: 'innovation', label: t.survey1.options.values.innovation },
+        { value: 'stability', label: t.survey1.options.values.stability },
+        { value: 'autonomy', label: t.survey1.options.values.autonomy },
+        { value: 'impact', label: t.survey1.options.values.impact },
+        { value: 'fairness', label: t.survey1.options.values.fairness }
+      ]
+    },
+    { 
+      id: 'd2_language', 
+      section: t.survey1.sections.values, 
+      question: t.survey1.questions.d2_language.question, 
+      type: 'textarea' as const, 
+      placeholder: t.survey1.questions.d2_language.placeholder, 
+      required: true 
+    },
+    { 
+      id: 'd3_experiences', 
+      section: t.survey1.sections.values, 
+      question: t.survey1.questions.d3_experiences.question, 
+      type: 'textarea' as const, 
+      placeholder: t.survey1.questions.d3_experiences.placeholder, 
+      required: true 
+    },
+    { 
+      id: 'd4_vision', 
+      section: t.survey1.sections.values, 
+      question: t.survey1.questions.d4_vision.question, 
+      type: 'textarea' as const, 
+      placeholder: t.survey1.questions.d4_vision.placeholder, 
+      required: true 
+    },
+    { 
+      id: 'e1_health', 
+      section: t.survey1.sections.reflection, 
+      question: t.survey1.questions.e1_health.question, 
+      type: 'scale' as const, 
+      required: true, 
+      options: [
+        { value: '1', label: t.survey1.options.health['1'] },
+        { value: '2', label: t.survey1.options.health['2'] },
+        { value: '3', label: t.survey1.options.health['3'] },
+        { value: '4', label: t.survey1.options.health['4'] },
+        { value: '5', label: t.survey1.options.health['5'] }
+      ]
+    },
+    { 
+      id: 'e2_influence', 
+      section: t.survey1.sections.reflection, 
+      question: t.survey1.questions.e2_influence.question, 
+      type: 'scale' as const, 
+      required: true, 
+      options: [
+        { value: '1', label: t.survey1.options.influence['1'] },
+        { value: '2', label: t.survey1.options.influence['2'] },
+        { value: '3', label: t.survey1.options.influence['3'] },
+        { value: '4', label: t.survey1.options.influence['4'] },
+        { value: '5', label: t.survey1.options.influence['5'] }
+      ]
+    }
+  ];
 
   useEffect(() => {
     const init = async () => {
@@ -236,7 +363,7 @@ export default function Survey1Content({ token }: { token: string }) {
                 })}
               </div>
               <select className="select" value="" onChange={(e) => { if (e.target.value) { const current = answers[q.id] || []; if (!current.includes(e.target.value) && current.length < (q.maxSelections || 10)) handleAnswer(q.id, [...current, e.target.value]); e.target.value = ''; } }}>
-                <option value="">{t.survey1.navigation.back}</option>
+                <option value="">{t.survey1.navigation.selectSomeone}</option>
                 {knownMembers.filter(m => m.id !== memberId).map(m => <option key={m.id} value={m.id}>{m.display_name || 'Anonymous'}</option>)}
               </select>
             </div>

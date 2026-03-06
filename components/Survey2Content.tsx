@@ -4,29 +4,6 @@ import { useState, useEffect } from 'react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 
-const QUESTIONS = [
-  { id: 'bridge_1', section: 'Follow-up', question: 'How do you stay connected across different parts of the group?', type: 'textarea', placeholder: 'Describe your bridging role...', required: false },
-  { id: 'bridge_2', section: 'Follow-up', question: 'Who would you go to for help outside your usual area?', type: 'nominate', required: false, maxSelections: 3 },
-  { id: 'role_1', section: 'Follow-up', question: 'How has your role changed recently?', type: 'single', required: false, options: [
-    { value: 'more_central', label: 'More central/influential' },
-    { value: 'less_central', label: 'Less central' },
-    { value: 'same', label: 'Stayed the same' },
-    { value: 'changed', label: 'Changed in nature' }
-  ]},
-  { id: 'role_2', section: 'Follow-up', question: 'If you stepped back, who could fill your role?', type: 'nominate', required: false, maxSelections: 3 },
-  { id: 'values_1', section: 'Follow-up', question: 'When did you feel most aligned with the group?', type: 'textarea', placeholder: 'A specific moment...', required: false },
-  { id: 'values_2', section: 'Follow-up', question: 'When did you feel least aligned with the group?', type: 'textarea', placeholder: 'A specific moment...', required: false },
-  { id: 'gap_1', section: 'Follow-up', question: 'Who do you wish you knew better?', type: 'nominate', required: false, maxSelections: 3 },
-  { id: 'gap_2', section: 'Follow-up', question: 'Who seems isolated or disconnected?', type: 'nominate', required: false, maxSelections: 3 },
-  { id: 'influence_1', section: 'Follow-up', question: 'Who influences you most?', type: 'nominate', required: false, maxSelections: 3 },
-  { id: 'influence_2', section: 'Follow-up', question: 'How do you influence decisions?', type: 'single', required: false, options: [
-    { value: 'direct', label: 'Speak up in discussions' },
-    { value: 'indirect', label: 'One-on-one conversations' },
-    { value: 'expert', label: 'My expertise carries weight' },
-    { value: 'behind', label: 'Behind the scenes' }
-  ]}
-];
-
 export default function Survey2Content({ token }: { token: string }) {
   const { t } = useLanguage();
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -36,6 +13,100 @@ export default function Survey2Content({ token }: { token: string }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [knownMembers, setKnownMembers] = useState<{id: string; display_name: string}[]>([]);
+
+  // Define questions with translation keys
+  const QUESTIONS = [
+    { 
+      id: 'bridge_1', 
+      section: t.survey2.followUpQuestions, 
+      question: t.survey2.questions.bridge_1.question, 
+      type: 'textarea' as const, 
+      placeholder: t.survey2.questions.bridge_1.placeholder, 
+      required: false 
+    },
+    { 
+      id: 'bridge_2', 
+      section: t.survey2.followUpQuestions, 
+      question: t.survey2.questions.bridge_2.question, 
+      type: 'nominate' as const, 
+      required: false, 
+      maxSelections: 3 
+    },
+    { 
+      id: 'role_1', 
+      section: t.survey2.followUpQuestions, 
+      question: t.survey2.questions.role_1.question, 
+      type: 'single' as const, 
+      required: false, 
+      options: [
+        { value: 'more_central', label: t.survey2.options.role.more_central },
+        { value: 'less_central', label: t.survey2.options.role.less_central },
+        { value: 'same', label: t.survey2.options.role.same },
+        { value: 'changed', label: t.survey2.options.role.changed }
+      ]
+    },
+    { 
+      id: 'role_2', 
+      section: t.survey2.followUpQuestions, 
+      question: t.survey2.questions.role_2.question, 
+      type: 'nominate' as const, 
+      required: false, 
+      maxSelections: 3 
+    },
+    { 
+      id: 'values_1', 
+      section: t.survey2.followUpQuestions, 
+      question: t.survey2.questions.values_1.question, 
+      type: 'textarea' as const, 
+      placeholder: t.survey2.questions.values_1.placeholder, 
+      required: false 
+    },
+    { 
+      id: 'values_2', 
+      section: t.survey2.followUpQuestions, 
+      question: t.survey2.questions.values_2.question, 
+      type: 'textarea' as const, 
+      placeholder: t.survey2.questions.values_2.placeholder, 
+      required: false 
+    },
+    { 
+      id: 'gap_1', 
+      section: t.survey2.followUpQuestions, 
+      question: t.survey2.questions.gap_1.question, 
+      type: 'nominate' as const, 
+      required: false, 
+      maxSelections: 3 
+    },
+    { 
+      id: 'gap_2', 
+      section: t.survey2.followUpQuestions, 
+      question: t.survey2.questions.gap_2.question, 
+      type: 'nominate' as const, 
+      required: false, 
+      maxSelections: 3 
+    },
+    { 
+      id: 'influence_1', 
+      section: t.survey2.followUpQuestions, 
+      question: t.survey2.questions.influence_1.question, 
+      type: 'nominate' as const, 
+      required: false, 
+      maxSelections: 3 
+    },
+    { 
+      id: 'influence_2', 
+      section: t.survey2.followUpQuestions, 
+      question: t.survey2.questions.influence_2.question, 
+      type: 'single' as const, 
+      required: false, 
+      options: [
+        { value: 'direct', label: t.survey2.options.influence.direct },
+        { value: 'indirect', label: t.survey2.options.influence.indirect },
+        { value: 'expert', label: t.survey2.options.influence.expert },
+        { value: 'behind', label: t.survey2.options.influence.behind }
+      ]
+    }
+  ];
 
   useEffect(() => {
     const init = async () => {
@@ -93,7 +164,7 @@ export default function Survey2Content({ token }: { token: string }) {
         <LanguageSwitcher />
       </div>
       <div className="progress">
-        <div className="progress-header"><span className="progress-label">{t.survey2.followUpQuestions}</span><span className="progress-count">{currentQuestion + 1} / {QUESTIONS.length}</span></div>
+        <div className="progress-header"><span className="progress-label">{q.section}</span><span className="progress-count">{currentQuestion + 1} / {QUESTIONS.length}</span></div>
         <div className="progress-bar"><div className="progress-bar-fill" style={{ width: `${progress}%` }} /></div>
       </div>
 
@@ -123,7 +194,7 @@ export default function Survey2Content({ token }: { token: string }) {
                 })}
               </div>
               <select className="select" value="" onChange={(e) => { if (e.target.value) { const current = answers[q.id] || []; if (!current.includes(e.target.value) && current.length < (q.maxSelections || 10)) handleAnswer(q.id, [...current, e.target.value]); e.target.value = ''; } }}>
-                <option value="">{t.survey2.back}</option>
+                <option value="">{t.survey2.navigation.selectSomeone}</option>
                 {knownMembers.filter(m => m.id !== memberId).map(m => <option key={m.id} value={m.id}>{m.display_name || 'Anonymous'}</option>)}
               </select>
             </div>
@@ -131,11 +202,11 @@ export default function Survey2Content({ token }: { token: string }) {
         </div>
 
         <div className="flex justify-between" style={{ marginTop: 'var(--space-6)' }}>
-          <button className="btn btn-secondary" onClick={() => setCurrentQuestion(p => p - 1)} disabled={currentQuestion === 0}>{t.survey2.back}</button>
+          <button className="btn btn-secondary" onClick={() => setCurrentQuestion(p => p - 1)} disabled={currentQuestion === 0}>{t.survey2.navigation.back}</button>
           {currentQuestion === QUESTIONS.length - 1 ? (
-            <button className="btn btn-primary" onClick={handleSubmit} disabled={isSubmitting}>{isSubmitting ? t.survey2.submitting : t.survey2.submit}</button>
+            <button className="btn btn-primary" onClick={handleSubmit} disabled={isSubmitting}>{isSubmitting ? t.survey2.navigation.submitting : t.survey2.navigation.submit}</button>
           ) : (
-            <button className="btn btn-primary" onClick={() => setCurrentQuestion(p => p + 1)}>{t.survey2.continue}</button>
+            <button className="btn btn-primary" onClick={() => setCurrentQuestion(p => p + 1)}>{t.survey2.navigation.continue}</button>
           )}
         </div>
       </div>
