@@ -2,8 +2,12 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { LanguageProvider } from '@/lib/i18n/LanguageContext';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 
-export default function AdminLogin() {
+function LoginForm() {
+  const { t } = useLanguage();
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -25,10 +29,10 @@ export default function AdminLogin() {
         router.push('/admin');
         router.refresh();
       } else {
-        setError('Invalid password');
+        setError(t.login.errorInvalid);
       }
     } catch (err) {
-      setError('Login failed');
+      setError(t.login.errorFailed);
     } finally {
       setIsLoading(false);
     }
@@ -37,21 +41,21 @@ export default function AdminLogin() {
   return (
     <div className="container" style={{ maxWidth: 400, paddingTop: 'var(--space-10)' }}>
       <div className="card" style={{ padding: 'var(--space-6)' }}>
-        <h1 style={{ marginBottom: 'var(--space-2)' }}>Admin Access</h1>
+        <h1 style={{ marginBottom: 'var(--space-2)' }}>{t.login.title}</h1>
         <p className="text-muted" style={{ marginBottom: 'var(--space-5)' }}>
-          Enter the admin password to continue.
+          {t.login.description}
         </p>
 
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: 'var(--space-4)' }}>
-            <label className="label" htmlFor="password">Password</label>
+            <label className="label" htmlFor="password">{t.login.passwordLabel}</label>
             <input
               id="password"
               type="password"
               className="input"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter password"
+              placeholder={t.login.passwordPlaceholder}
               autoFocus
             />
           </div>
@@ -75,10 +79,22 @@ export default function AdminLogin() {
             style={{ width: '100%' }}
             disabled={isLoading || !password}
           >
-            {isLoading ? 'Signing in...' : 'Sign In'}
+            {isLoading ? t.login.signingIn : t.login.signIn}
           </button>
         </form>
       </div>
+      
+      <div style={{ marginTop: 'var(--space-4)', display: 'flex', justifyContent: 'center' }}>
+        <LanguageSwitcher />
+      </div>
     </div>
+  );
+}
+
+export default function AdminLogin() {
+  return (
+    <LanguageProvider>
+      <LoginForm />
+    </LanguageProvider>
   );
 }
