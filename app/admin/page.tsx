@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 interface DashboardStats {
   totalMembers: number;
@@ -44,6 +45,7 @@ interface Analysis {
 }
 
 export default function AdminDashboard() {
+  const router = useRouter();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [roster, setRoster] = useState<Member[]>([]);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
@@ -93,11 +95,24 @@ export default function AdminDashboard() {
     return 'status-pending';
   };
 
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      router.push('/admin/login');
+      router.refresh();
+    } catch (e) {
+      console.error('Logout error:', e);
+    }
+  };
+
   return (
     <div className="container-admin">
       <div className="flex justify-between items-center mb-4">
         <h1>TribeMapper Admin</h1>
-        <button className="btn btn-secondary btn-small" onClick={loadData}>Refresh</button>
+        <div className="flex gap-2">
+          <button className="btn btn-secondary btn-small" onClick={loadData}>Refresh</button>
+          <button className="btn btn-small" onClick={handleLogout} style={{ color: 'var(--text-muted)', border: '1px solid var(--border)' }}>Logout</button>
+        </div>
       </div>
 
       <div className="nav-tabs">

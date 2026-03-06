@@ -28,14 +28,19 @@ A tribe mapping system for understanding community dynamics, relationships, and 
 npm install
 ```
 
-### 3. Configure Database
+### 3. Configure Environment Variables
 
 Create a `.env.local` file in the project root:
 
 ```bash
-# Get your connection string from Neon dashboard
-# https://console.neon.tech
+# Database (from Neon dashboard)
 DATABASE_URL=postgresql://username:password@host.neon.tech/dbname?sslmode=require
+
+# Admin Password (set a strong password)
+ADMIN_PASSWORD=your-secure-password-here
+
+# Session Secret (optional, generates automatically if not set)
+# SESSION_SECRET=$(openssl rand -base64 32)
 ```
 
 ### 4. Initialize Database
@@ -63,9 +68,13 @@ Visit http://localhost:3000
 
 1. Push code to GitHub
 2. Import project in Vercel environment
-3. Add variable in Vercel project settings:
+3. Add environment variables in Vercel project settings:
    - `DATABASE_URL` = your Neon pooled connection string
+   - `ADMIN_PASSWORD` = your secure admin password
+   - `SESSION_SECRET` = generate with `openssl rand -base64 32` (optional)
 4. Deploy
+
+**Important**: The admin dashboard (`/admin`) is now password-protected. Use the password you set in `ADMIN_PASSWORD` to log in.
 
 ## Usage
 
