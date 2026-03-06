@@ -1,20 +1,44 @@
-import Database from 'better-sqlite3';
+import { neon } from '@neondatabase/serverless';
 import { v4 as uuidv4 } from 'uuid';
-import path from 'path';
 
-const dbPath = process.env.DB_PATH || path.join(process.cwd(), 'tribemapper.db');
-const db = new Database(dbPath);
+const DATABASE_URL = process.env.DATABASE_URL;
 
-db.pragma('journal_mode = WAL');
+if (!DATABASE_URL) {
+  console.warn('DATABASE_URL not set - database operations will fail');
+}
 
-export function initializeDatabase() {
-  db.exec(`
+type NeonSql = ReturnType<typeof neon>;
+
+const sql: NeonSql | null = DATABASE_URL ? neon(DATABASE_URL) : null;
+
+export function isConfigured(): boolean {
+  return sql !== null;
+}
+
+async function runQuery<T>(query: string, params: any[] = []): Promise<T[]> {
+  if (!sql) throw new Error('Database not configured');
+  const result = await sql(query, params);
+  return result as T[];
+}
+
+async function runSingle<T>(query: string, params: any[] = []): Promise<T | undefined> {
+  const results = await runQuery<T>(query, params);
+  return results[0];
+}
+
+export async function initializeDatabase() {
+  if (!sql) {
+    console.log('Skipping DB init - no DATABASE_URL');
+    return;
+  }
+
+  await sql`
     CREATE TABLE IF NOT EXISTS members (
       id TEXT PRIMARY KEY,
       anonymous_id TEXT UNIQUE,
       display_name TEXT,
       email TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       status TEXT DEFAULT 'pending',
       survey_stage TEXT DEFAULT 'none',
       consent_data INTEGER DEFAULT 0,
@@ -29,7 +53,7 @@ export function initializeDatabase() {
       question_id TEXT NOT NULL,
       answer_value TEXT,
       answer_type TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (member_id) REFERENCES members(id)
     );
 
@@ -41,7 +65,7 @@ export function initializeDatabase() {
       strength INTEGER DEFAULT 3,
       direction TEXT DEFAULT 'bidirectional',
       source_confidence INTEGER DEFAULT 3,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       validated INTEGER DEFAULT 0,
       FOREIGN KEY (source_id) REFERENCES members(id),
       FOREIGN KEY (target_id) REFERENCES members(id)
@@ -54,7 +78,7 @@ export function initializeDatabase() {
       property_value TEXT,
       confidence REAL DEFAULT 0,
       source_questions TEXT DEFAULT '[]',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (member_id) REFERENCES members(id)
     );
 
@@ -64,23 +88,23 @@ export function initializeDatabase() {
       signal_value TEXT,
       source_members TEXT DEFAULT '[]',
       confidence REAL DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS survey_configs (
       id TEXT PRIMARY KEY,
       survey_type TEXT NOT NULL,
       config_json TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+  `;
 
-    CREATE INDEX IF NOT EXISTS idx_responses_member ON survey_responses(member_id);
-    CREATE INDEX IF NOT EXISTS idx_responses_type ON survey_responses(survey_type);
-    CREATE INDEX IF NOT EXISTS idx_relationships_source ON relationships(source_id);
-    CREATE INDEX IF NOT EXISTS idx_relationships_target ON relationships(target_id);
-    CREATE INDEX IF NOT EXISTS idx_inferred_member ON inferred_properties(member_id);
-  `);
+  await sql`CREATE INDEX IF NOT EXISTS idx_responses_member ON survey_responses(member_id);`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_responses_type ON survey_responses(survey_type);`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_relationships_source ON relationships(source_id);`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_relationships_target ON relationships(target_id);`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_inferred_member ON inferred_properties(member_id);`;
 }
 
 export interface MemberRow {
@@ -88,7 +112,7 @@ export interface MemberRow {
   anonymous_id: string;
   display_name: string | null;
   email: string | null;
-  created_at: string;
+  created_at: Date;
   status: string;
   survey_stage: string;
   consent_data: number;
@@ -96,27 +120,25 @@ export interface MemberRow {
   metadata: string;
 }
 
-export function createMember(data: { display_name?: string; email?: string; anonymous_id?: string }) {
+export async function createMember(data: { display_name?: string; email?: string; anonymous_id?: string }): Promise<string> {
   const id = uuidv4();
-  const stmt = db.prepare(`
-    INSERT INTO members (id, anonymous_id, display_name, email, status, survey_stage)
-    VALUES (?, ?, ?, ?, 'pending', 'none')
-  `);
-  stmt.run(id, data.anonymous_id || uuidv4(), data.display_name || null, data.email || null);
+  const anonId = data.anonymous_id || uuidv4();
+  await runQuery(
+    `INSERT INTO members (id, anonymous_id, display_name, email, status, survey_stage) VALUES ($1, $2, $3, $4, 'pending', 'none')`,
+    [id, anonId, data.display_name || null, data.email || null]
+  );
   return id;
 }
 
-export function getMember(id: string): MemberRow | undefined {
-  const stmt = db.prepare('SELECT * FROM members WHERE id = ?');
-  return stmt.get(id) as MemberRow | undefined;
+export async function getMember(id: string): Promise<MemberRow | undefined> {
+  return runSingle<MemberRow>('SELECT * FROM members WHERE id = $1', [id]);
 }
 
-export function getMemberByAnonymousId(anonymousId: string): MemberRow | undefined {
-  const stmt = db.prepare('SELECT * FROM members WHERE anonymous_id = ?');
-  return stmt.get(anonymousId) as MemberRow | undefined;
+export async function getMemberByAnonymousId(anonymousId: string): Promise<MemberRow | undefined> {
+  return runSingle<MemberRow>('SELECT * FROM members WHERE anonymous_id = $1', [anonymousId]);
 }
 
-export function updateMember(id: string, data: Partial<{
+export async function updateMember(id: string, data: Partial<{
   status: string;
   survey_stage: string;
   consent_data: number;
@@ -129,192 +151,31 @@ export function updateMember(id: string, data: Partial<{
   const values = Object.values(data);
   if (fields.length === 0) return;
   
-  const setClause = fields.map(f => `${f} = ?`).join(', ');
-  const stmt = db.prepare(`UPDATE members SET ${setClause} WHERE id = ?`);
-  stmt.run(...values, id);
+  const setClause = fields.map((f, i) => `${f} = $${i + 2}`).join(', ');
+  const query = `UPDATE members SET ${setClause} WHERE id = $1`;
+  await runQuery(query, [id, ...values]);
 }
 
-export function saveSurveyResponse(data: {
+export async function saveSurveyResponse(data: {
   member_id: string;
   survey_type: string;
   question_id: string;
   answer_value: string;
   answer_type: string;
-}) {
+}): Promise<string> {
   const id = uuidv4();
-  const stmt = db.prepare(`
-    INSERT INTO survey_responses (id, member_id, survey_type, question_id, answer_value, answer_type)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `);
-  stmt.run(id, data.member_id, data.survey_type, data.question_id, data.answer_value, data.answer_type);
+  await runQuery(
+    `INSERT INTO survey_responses (id, member_id, survey_type, question_id, answer_value, answer_type) VALUES ($1, $2, $3, $4, $5, $6)`,
+    [id, data.member_id, data.survey_type, data.question_id, data.answer_value, data.answer_type]
+  );
   return id;
 }
 
-export function getSurveyResponses(memberId: string, surveyType?: string) {
+export async function getSurveyResponses(memberId: string, surveyType?: string) {
   if (surveyType) {
-    const stmt = db.prepare('SELECT * FROM survey_responses WHERE member_id = ? AND survey_type = ?');
-    return stmt.all(memberId, surveyType);
+    return runQuery('SELECT * FROM survey_responses WHERE member_id = $1 AND survey_type = $2', [memberId, surveyType]);
   }
-  const stmt = db.prepare('SELECT * FROM survey_responses WHERE member_id = ?');
-  return stmt.all(memberId);
-}
-
-export function saveRelationship(data: {
-  source_id: string;
-  target_id: string;
-  relationship_type: string;
-  strength?: number;
-  source_confidence?: number;
-}) {
-  const id = uuidv4();
-  const stmt = db.prepare(`
-    INSERT INTO relationships (id, source_id, target_id, relationship_type, strength, source_confidence)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `);
-  stmt.run(
-    id,
-    data.source_id,
-    data.target_id,
-    data.relationship_type,
-    data.strength || 3,
-    data.source_confidence || 3
-  );
-  return id;
-}
-
-export function getRelationships(type?: string, memberId?: string): RelationshipRow[] {
-  let query = 'SELECT * FROM relationships';
-  const params: string[] = [];
-  const conditions: string[] = [];
-
-  if (type) {
-    conditions.push('relationship_type = ?');
-    params.push(type);
-  }
-  if (memberId) {
-    conditions.push('(source_id = ? OR target_id = ?)');
-    params.push(memberId, memberId);
-  }
-
-  if (conditions.length > 0) {
-    query += ' WHERE ' + conditions.join(' AND ');
-  }
-
-  const stmt = db.prepare(query);
-  return stmt.all(...params) as RelationshipRow[];
-}
-
-export function saveInferredProperty(data: {
-  member_id: string;
-  property_type: string;
-  property_value: string;
-  confidence: number;
-  source_questions: string[];
-}) {
-  const id = uuidv4();
-  const stmt = db.prepare(`
-    INSERT INTO inferred_properties (id, member_id, property_type, property_value, confidence, source_questions)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `);
-  stmt.run(
-    id,
-    data.member_id,
-    data.property_type,
-    data.property_value,
-    data.confidence,
-    JSON.stringify(data.source_questions)
-  );
-  return id;
-}
-
-export function getInferredProperties(memberId?: string) {
-  if (memberId) {
-    const stmt = db.prepare('SELECT * FROM inferred_properties WHERE member_id = ?');
-    return stmt.all(memberId);
-  }
-  const stmt = db.prepare('SELECT * FROM inferred_properties');
-  return stmt.all();
-}
-
-export function saveTribeSignal(data: {
-  signal_type: string;
-  signal_value: string;
-  source_members: string[];
-  confidence: number;
-}) {
-  const id = uuidv4();
-  const stmt = db.prepare(`
-    INSERT INTO tribe_signals (id, signal_type, signal_value, source_members, confidence)
-    VALUES (?, ?, ?, ?, ?)
-  `);
-  stmt.run(
-    id,
-    data.signal_type,
-    data.signal_value,
-    JSON.stringify(data.source_members),
-    data.confidence
-  );
-  return id;
-}
-
-export function getTribeSignals(type?: string) {
-  if (type) {
-    const stmt = db.prepare('SELECT * FROM tribe_signals WHERE signal_type = ?');
-    return stmt.all(type);
-  }
-  const stmt = db.prepare('SELECT * FROM tribe_signals');
-  return stmt.all();
-}
-
-export function getAllMembers(status?: string): MemberRow[] {
-  if (status) {
-    const stmt = db.prepare('SELECT * FROM members WHERE status = ?');
-    return stmt.all(status) as MemberRow[];
-  }
-  const stmt = db.prepare('SELECT * FROM members');
-  return stmt.all() as MemberRow[];
-}
-
-export function getMemberCount(status?: string) {
-  if (status) {
-    const stmt = db.prepare('SELECT COUNT(*) as count FROM members WHERE status = ?');
-    return (stmt.get(status) as { count: number }).count;
-  }
-  const stmt = db.prepare('SELECT COUNT(*) as count FROM members');
-  return (stmt.get() as { count: number }).count;
-}
-
-export function getSurveyStats(surveyType: string) {
-  const stmt = db.prepare(`
-    SELECT 
-      COUNT(DISTINCT member_id) as respondents,
-      COUNT(*) as total_responses,
-      MAX(created_at) as last_response
-    FROM survey_responses 
-    WHERE survey_type = ?
-  `);
-  return stmt.get(surveyType);
-}
-
-export interface SurveyResponseRow {
-  id: string;
-  member_id: string;
-  survey_type: string;
-  question_id: string;
-  answer_value: string;
-  answer_type: string;
-  created_at: string;
-  display_name: string | null;
-  anonymous_id: string | null;
-}
-
-export function getAllResponsesWithMembers(): SurveyResponseRow[] {
-  const stmt = db.prepare(`
-    SELECT r.*, m.display_name, m.anonymous_id
-    FROM survey_responses r
-    JOIN members m ON r.member_id = m.id
-  `);
-  return stmt.all() as SurveyResponseRow[];
+  return runQuery('SELECT * FROM survey_responses WHERE member_id = $1', [memberId]);
 }
 
 export interface RelationshipRow {
@@ -325,14 +186,135 @@ export interface RelationshipRow {
   strength: number;
   direction: string;
   source_confidence: number;
-  created_at: string;
+  created_at: Date;
   validated: number;
   source_name: string | null;
   target_name: string | null;
 }
 
-export function getAllRelationships(): RelationshipRow[] {
-  const stmt = db.prepare(`
+export async function saveRelationship(data: {
+  source_id: string;
+  target_id: string;
+  relationship_type: string;
+  strength?: number;
+  source_confidence?: number;
+}): Promise<string> {
+  const id = uuidv4();
+  await runQuery(
+    `INSERT INTO relationships (id, source_id, target_id, relationship_type, strength, source_confidence) VALUES ($1, $2, $3, $4, $5, $6)`,
+    [id, data.source_id, data.target_id, data.relationship_type, data.strength || 3, data.source_confidence || 3]
+  );
+  return id;
+}
+
+export async function getRelationships(type?: string, memberId?: string): Promise<RelationshipRow[]> {
+  let query = 'SELECT * FROM relationships';
+  const params: string[] = [];
+  const conditions: string[] = [];
+  let paramIndex = 1;
+
+  if (type) {
+    conditions.push(`relationship_type = $${paramIndex++}`);
+    params.push(type);
+  }
+  if (memberId) {
+    conditions.push(`(source_id = $${paramIndex++} OR target_id = $${paramIndex++})`);
+    params.push(memberId, memberId);
+  }
+
+  if (conditions.length > 0) {
+    query += ' WHERE ' + conditions.join(' AND ');
+  }
+
+  return runQuery<RelationshipRow>(query, params);
+}
+
+export async function saveInferredProperty(data: {
+  member_id: string;
+  property_type: string;
+  property_value: string;
+  confidence: number;
+  source_questions: string[];
+}): Promise<string> {
+  const id = uuidv4();
+  await runQuery(
+    `INSERT INTO inferred_properties (id, member_id, property_type, property_value, confidence, source_questions) VALUES ($1, $2, $3, $4, $5, $6)`,
+    [id, data.member_id, data.property_type, data.property_value, data.confidence, JSON.stringify(data.source_questions)]
+  );
+  return id;
+}
+
+export async function getInferredProperties(memberId?: string) {
+  if (memberId) {
+    return runQuery('SELECT * FROM inferred_properties WHERE member_id = $1', [memberId]);
+  }
+  return runQuery('SELECT * FROM inferred_properties');
+}
+
+export async function saveTribeSignal(data: {
+  signal_type: string;
+  signal_value: string;
+  source_members: string[];
+  confidence: number;
+}): Promise<string> {
+  const id = uuidv4();
+  await runQuery(
+    `INSERT INTO tribe_signals (id, signal_type, signal_value, source_members, confidence) VALUES ($1, $2, $3, $4, $5)`,
+    [id, data.signal_type, data.signal_value, JSON.stringify(data.source_members), data.confidence]
+  );
+  return id;
+}
+
+export async function getTribeSignals(type?: string) {
+  if (type) {
+    return runQuery('SELECT * FROM tribe_signals WHERE signal_type = $1', [type]);
+  }
+  return runQuery('SELECT * FROM tribe_signals');
+}
+
+export async function getAllMembers(status?: string): Promise<MemberRow[]> {
+  if (status) {
+    return runQuery<MemberRow>('SELECT * FROM members WHERE status = $1', [status]);
+  }
+  return runQuery<MemberRow>('SELECT * FROM members');
+}
+
+export async function getMemberCount(status?: string): Promise<number> {
+  const result = status 
+    ? await runSingle<{ count: number }>('SELECT COUNT(*) as count FROM members WHERE status = $1', [status])
+    : await runSingle<{ count: number }>('SELECT COUNT(*) as count FROM members');
+  return result?.count || 0;
+}
+
+export async function getSurveyStats(surveyType: string) {
+  return runSingle<{ respondents: number; total_responses: number; last_response: Date | null }>(
+    `SELECT COUNT(DISTINCT member_id) as respondents, COUNT(*) as total_responses, MAX(created_at) as last_response FROM survey_responses WHERE survey_type = $1`,
+    [surveyType]
+  );
+}
+
+export interface SurveyResponseRow {
+  id: string;
+  member_id: string;
+  survey_type: string;
+  question_id: string;
+  answer_value: string;
+  answer_type: string;
+  created_at: Date;
+  display_name: string | null;
+  anonymous_id: string | null;
+}
+
+export async function getAllResponsesWithMembers(): Promise<SurveyResponseRow[]> {
+  return runQuery<SurveyResponseRow>(`
+    SELECT r.*, m.display_name, m.anonymous_id
+    FROM survey_responses r
+    JOIN members m ON r.member_id = m.id
+  `);
+}
+
+export async function getAllRelationships(): Promise<RelationshipRow[]> {
+  return runQuery<RelationshipRow>(`
     SELECT 
       r.*,
       s.display_name as source_name,
@@ -341,14 +323,11 @@ export function getAllRelationships(): RelationshipRow[] {
     LEFT JOIN members s ON r.source_id = s.id
     LEFT JOIN members t ON r.target_id = t.id
   `);
-  return stmt.all() as RelationshipRow[];
 }
 
-export function deleteMemberData(memberId: string) {
-  db.prepare('DELETE FROM survey_responses WHERE member_id = ?').run(memberId);
-  db.prepare('DELETE FROM relationships WHERE source_id = ? OR target_id = ?').run(memberId, memberId);
-  db.prepare('DELETE FROM inferred_properties WHERE member_id = ?').run(memberId);
-  db.prepare('DELETE FROM members WHERE id = ?').run(memberId);
+export async function deleteMemberData(memberId: string) {
+  await runQuery('DELETE FROM survey_responses WHERE member_id = $1', [memberId]);
+  await runQuery('DELETE FROM relationships WHERE source_id = $1 OR target_id = $1', [memberId]);
+  await runQuery('DELETE FROM inferred_properties WHERE member_id = $1', [memberId]);
+  await runQuery('DELETE FROM members WHERE id = $1', [memberId]);
 }
-
-export default db;

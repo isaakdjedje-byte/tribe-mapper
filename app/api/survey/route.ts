@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { initializeDatabase, createMember, getMemberByAnonymousId, updateMember, saveSurveyResponse, getAllMembers, getAllRelationships, getAllResponsesWithMembers, getSurveyResponses, getMemberCount, getSurveyStats, saveRelationship, getInferredProperties, saveInferredProperty, getTribeSignals, saveTribeSignal, getMember, getRelationships } from '@/lib/db';
+import { initializeDatabase, createMember, getMemberByAnonymousId, updateMember, saveSurveyResponse, getAllMembers, getAllRelationships, getAllResponsesWithMembers, getSurveyResponses, getMemberCount, getSurveyStats, saveRelationship, getInferredProperties, saveInferredProperty, getTribeSignals, saveTribeSignal, getMember, getRelationships, isConfigured } from '@/lib/db';
 import { analyzeTribe } from '@/lib/analytics/engine';
 
 export async function POST(request: NextRequest) {
   try {
-    initializeDatabase();
+    await initializeDatabase();
+    
+    if (!isConfigured()) {
+      return NextResponse.json({ error: 'Database not configured. Please set DATABASE_URL.' }, { status: 500 });
+    }
+    
     const body = await request.json();
     const { action, ...data } = body;
 
@@ -14,23 +19,23 @@ export async function POST(request: NextRequest) {
       }
 
       case 'create_member': {
-        const memberId = createMember(data);
+        const memberId = await createMember(data);
         return NextResponse.json({ memberId });
       }
 
       case 'get_or_create_member': {
         const { anonymous_id } = data;
-        let member = getMemberByAnonymousId(anonymous_id);
+        let member = await getMemberByAnonymousId(anonymous_id);
         if (!member) {
-          const memberId = createMember({ anonymous_id });
-          member = getMember(memberId);
+          const memberId = await createMember({ anonymous_id });
+          member = await getMember(memberId);
         }
         return NextResponse.json({ member });
       }
 
       case 'update_member': {
         const { member_id, ...updates } = data;
-        updateMember(member_id, updates);
+        await updateMember(member_id, updates);
         return NextResponse.json({ status: 'ok' });
       }
 
@@ -38,7 +43,7 @@ export async function POST(request: NextRequest) {
         const { member_id, survey_type, responses } = data;
         
         for (const response of responses) {
-          saveSurveyResponse({
+          await saveSurveyResponse({
             member_id,
             survey_type,
             question_id: response.question_id,
@@ -47,7 +52,7 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        updateMember(member_id, {
+        await updateMember(member_id, {
           status: 'completed',
           survey_stage: survey_type
         });
@@ -57,15 +62,15 @@ export async function POST(request: NextRequest) {
 
       case 'get_survey_responses': {
         const { member_id, survey_type } = data;
-        const responses = getSurveyResponses(member_id, survey_type);
+        const responses = await getSurveyResponses(member_id, survey_type);
         return NextResponse.json({ responses });
       }
 
       case 'get_survey2_triggers': {
         const { member_id } = data;
-        const allMembers = getAllMembers();
-        const allRelationships = getAllRelationships();
-        const member = getMember(member_id);
+        const allMembers = await getAllMembers();
+        const allRelationships = await getAllRelationships();
+        const member = await getMember(member_id);
         
         const triggers = [];
         const nominationsReceived = allRelationships.filter(r => 
@@ -89,9 +94,9 @@ export async function POST(request: NextRequest) {
       }
 
       case 'get_analytics': {
-        const members = getAllMembers();
-        const relationships = getAllRelationships();
-        const surveyResponses = getAllResponsesWithMembers();
+        const members = await getAllMembers();
+        const relationships = await getAllRelationships();
+        const surveyResponses = await getAllResponsesWithMembers();
         
         const analysis = analyzeTribe(members, relationships, surveyResponses);
         
@@ -99,11 +104,11 @@ export async function POST(request: NextRequest) {
       }
 
       case 'get_dashboard_stats': {
-        const totalMembers = getMemberCount();
-        const activeMembers = getMemberCount('active');
-        const completedMembers = getMemberCount('completed');
-        const survey1Stats = getSurveyStats('survey1');
-        const survey2Stats = getSurveyStats('survey2');
+        const totalMembers = await getMemberCount();
+        const activeMembers = await getMemberCount('active');
+        const completedMembers = await getMemberCount('completed');
+        const survey1Stats = await getSurveyStats('survey1');
+        const survey2Stats = await getSurveyStats('survey2');
         
         return NextResponse.json({
           totalMembers,
@@ -116,8 +121,8 @@ export async function POST(request: NextRequest) {
       }
 
       case 'get_roster': {
-        const members = getAllMembers();
-        const relationships = getAllRelationships();
+        const members = await getAllMembers();
+        const relationships = await getAllRelationships();
         
         const roster = members.map(m => {
           const trustReceived = relationships.filter(r => r.target_id === m.id && r.relationship_type === 'trust').length;
@@ -146,7 +151,7 @@ export async function POST(request: NextRequest) {
 
       case 'get_relationships': {
         const { type, member_id } = data;
-        const relationships = getRelationships(type, member_id);
+        const relationships = await getRelationships(type, member_id);
         return NextResponse.json({ relationships });
       }
 
@@ -155,7 +160,7 @@ export async function POST(request: NextRequest) {
         
         for (const targetId of nominations) {
           if (targetId !== member_id) {
-            saveRelationship({
+            await saveRelationship({
               source_id: member_id,
               target_id: targetId,
               relationship_type,
@@ -174,8 +179,8 @@ export async function POST(request: NextRequest) {
         
         for (let i = 0; i < (count || 1); i++) {
           const anonymous_id = `tm_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-          const memberId = createMember({ anonymous_id });
-          updateMember(memberId, { status: 'active' });
+          const memberId = await createMember({ anonymous_id });
+          await updateMember(memberId, { status: 'active' });
           links.push(`/survey/${memberId}`);
         }
 
@@ -186,7 +191,7 @@ export async function POST(request: NextRequest) {
         const { member_ids, criteria } = data;
         
         for (const memberId of member_ids) {
-          updateMember(memberId, { survey_stage: 'survey2_pending' });
+          await updateMember(memberId, { survey_stage: 'survey2_pending' });
         }
 
         return NextResponse.json({ status: 'ok', triggered: member_ids.length });
@@ -203,13 +208,18 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    initializeDatabase();
+    await initializeDatabase();
+    
+    if (!isConfigured()) {
+      return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
+    }
+    
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
 
     switch (action) {
       case 'health': {
-        const totalMembers = getMemberCount();
+        const totalMembers = await getMemberCount();
         return NextResponse.json({ status: 'ok', totalMembers });
       }
 
