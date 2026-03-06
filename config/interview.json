@@ -1,0 +1,88 @@
+{
+  "trigger_criteria": [
+    {
+      "id": "high_centrality_low_trust",
+      "name": "High Centrality, Low Trust",
+      "description": "Member is nominated frequently but doesn\'t reciprocate",
+      "threshold": { "min_nominations": 3, "max_reciprocation_rate": 0.5 }
+    },
+    {
+      "id": "role_discrepancy",
+      "name": "Role Discrepancy",
+      "description": "Self-description differs significantly from how others describe them",
+      "threshold": { "min_other_descriptions": 3 }
+    },
+    {
+      "id": "isolated_nominator",
+      "name": "Isolated Nominator",
+      "description": "Member was nominated by many but didn\'t nominate anyone",
+      "threshold": { "min_nominations_received": 2, "nominations_given": 0 }
+    },
+    {
+      "id": "trust_asymmetry",
+      "name": "Trust Asymmetry",
+      "description": "A trusts B but B doesn\'t trust A (unilateral trust)",
+      "threshold": { "unilateral_count": 1 }
+    },
+    {
+      "id": "missing_data",
+      "name": "Missing Relationship Data",
+      "description": "No relationship nominations from this member",
+      "threshold": { "status": "completed", "has_nominations": false }
+    },
+    {
+      "id": "cluster_boundary",
+      "name": "Cluster Boundary",
+      "description": "Member sits between clusters but no cross-cluster ties",
+      "threshold": { "clusters_spanned": 2, "cross_cluster_ties": 0 }
+    }
+  ],
+  "interview_guide": {
+    "total_time": "20 minutes",
+    "sections": [
+      {
+        "name": "Role Clarification",
+        "time": "5 minutes",
+        "questions": [
+          "How would you describe your role in the group?",
+          "How has your role changed over time?",
+          "What do you wish people understood better about what you do?"
+        ]
+      },
+      {
+        "name": "Relationship Depth",
+        "time": "5 minutes",
+        "questions": [
+          "Who do you go to when you need help?",
+          "Who would you trust with sensitive information?",
+          "Are there people you wish you knew better?"
+        ]
+      },
+      {
+        "name": "Values and Vision",
+        "time": "5 minutes",
+        "questions": [
+          "What does this group care about most?",
+          "What should we be working toward?",
+          "When have you felt most aligned with the group?"
+        ]
+      },
+      {
+        "name": "Group Dynamics",
+        "time": "5 minutes",
+        "questions": [
+          "How would you describe how decisions get made?",
+          "What\'s one thing you think could work better?",
+          "Who do you think holds the group together?"
+        ]
+      }
+    ]
+  },
+  "privacy_notice": {
+    "for_interviews": "All interview notes are confidential. Individual responses will not be shared with other members. Use pseudonyms in any reports unless explicitly permitted.",
+    "ai_fallback": {
+      "allowed": false,
+      "reason": "Privacy-safe mode: Raw interview data should not be processed by third-party AI without explicit consent."
+    }
+  }
+}
