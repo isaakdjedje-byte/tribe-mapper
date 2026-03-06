@@ -53,6 +53,8 @@ export default function AdminDashboard() {
   const [linkCount, setLinkCount] = useState(1);
   const [generatedLinks, setGeneratedLinks] = useState<string[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [linkError, setLinkError] = useState('');
+  const [linkSuccess, setLinkSuccess] = useState('');
 
   useEffect(() => { loadData(); }, []);
 
@@ -74,12 +76,33 @@ export default function AdminDashboard() {
 
   const generateLinks = async () => {
     setIsGenerating(true);
+    setLinkError('');
+    setLinkSuccess('');
+    setGeneratedLinks([]);
+    
     try {
       const res = await fetch('/api/survey', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'generate_link', count: linkCount }) });
       const data = await res.json();
-      setGeneratedLinks(data.links || []);
-    } catch (e) { console.error('Generate error:', e); }
+      
+      if (!res.ok) {
+        setLinkError(data.error || 'Failed to generate links');
+      } else if (!data.links || data.links.length === 0) {
+        setLinkError('No links were generated');
+      } else {
+        setGeneratedLinks(data.links);
+        setLinkSuccess(`Generated ${data.links.length} survey link${data.links.length > 1 ? 's' : ''}`);
+      }
+    } catch (e) { 
+      console.error('Generate error:', e);
+      setLinkError('Network error: Failed to generate links');
+    }
     setIsGenerating(false);
+  };
+
+  const copyLink = (link: string) => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const fullUrl = origin + link;
+    navigator.clipboard.writeText(fullUrl);
   };
 
   const triggerSurvey2 = async (memberIds: string[]) => {
@@ -313,6 +336,32 @@ export default function AdminDashboard() {
             </button>
           </div>
 
+          {linkError && (
+            <div style={{ 
+              padding: 'var(--space-3)', 
+              background: 'var(--danger-subtle)', 
+              color: 'var(--danger)',
+              borderRadius: 'var(--radius)',
+              fontSize: '0.875rem',
+              marginTop: 'var(--space-4)'
+            }}>
+              {linkError}
+            </div>
+          )}
+
+          {linkSuccess && (
+            <div style={{ 
+              padding: 'var(--space-3)', 
+              background: 'var(--primary-subtle)', 
+              color: 'var(--primary)',
+              borderRadius: 'var(--radius)',
+              fontSize: '0.875rem',
+              marginTop: 'var(--space-4)'
+            }}>
+              {linkSuccess}
+            </div>
+          )}
+
           {generatedLinks.length > 0 && (
             <div className="mt-6 pt-6" style={{ borderTop: '1px solid var(--border)' }}>
               <div className="section-title">Generated Links</div>
@@ -320,7 +369,7 @@ export default function AdminDashboard() {
                 {generatedLinks.map((link, i) => (
                   <div key={i} className="flex justify-between items-center" style={{ padding: 'var(--space-2) 0', borderBottom: '1px solid var(--border)' }}>
                     <code style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{link}</code>
-                    <button className="btn btn-small" style={{ color: 'var(--primary)', border: 'none', background: 'none' }} onClick={() => navigator.clipboard.writeText(window.location.origin + link)}>
+                    <button className="btn btn-small" style={{ color: 'var(--primary)', border: 'none', background: 'none' }} onClick={() => copyLink(link)}>
                       Copy
                     </button>
                   </div>
