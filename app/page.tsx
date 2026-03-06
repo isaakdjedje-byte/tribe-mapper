@@ -2,37 +2,33 @@ import Link from 'next/link';
 
 export default function Home() {
   return (
-    <div className="container">
-      <div className="card text-center" style={{ maxWidth: 600, margin: '4rem auto', padding: '3rem' }}>
-        <h1>TribeMapper</h1>
-        <p className="text-muted mt-2" style={{ fontSize: '1.125rem' }}>
-          Understand your community's dynamics
+    <div className="container" style={{ maxWidth: 560, paddingTop: 'var(--space-10)' }}>
+      <div className="card" style={{ textAlign: 'center', padding: 'var(--space-8)' }}>
+        <h1 style={{ fontSize: '1.75rem', marginBottom: 'var(--space-3)' }}>TribeMapper</h1>
+        <p className="text-secondary" style={{ fontSize: '1.0625rem', marginBottom: 'var(--space-6)' }}>
+          Understand how your community works
         </p>
         
-        <div className="grid gap-3 mt-4" style={{ marginTop: '2rem' }}>
-          <Link href="/admin" className="btn btn-primary" style={{ justifyContent: 'center' }}>
-            Admin Dashboard
-          </Link>
-          
-          <p className="text-sm text-muted">
-            Have a survey link? The survey will direct you to the right place.
-          </p>
-        </div>
+        <Link href="/admin" className="btn btn-primary" style={{ display: 'block', width: '100%' }}>
+          Admin Dashboard
+        </Link>
 
-        <div style={{ marginTop: '3rem', paddingTop: '2rem', borderTop: '1px solid var(--color-border)' }}>
-          <p className="text-sm text-muted">
-            TribeMapper helps you map:
-          </p>
-          <ul style={{ textAlign: 'left', marginTop: '1rem', paddingLeft: '1.5rem' }} className="text-sm">
-            <li>Who trusts whom</li>
-            <li>How decisions get made</li>
-            <li>Who the key connectors are</li>
-            <li>Hidden subgroups</li>
+        <div style={{ marginTop: 'var(--space-8)', paddingTop: 'var(--space-6)', borderTop: '1px solid var(--border)', textAlign: 'left' }}>
+          <p className="section-title" style={{ marginBottom: 'var(--space-3)' }}>What TribeMapper Maps</p>
+          <ul style={{ fontSize: '0.9375rem', color: 'var(--text-secondary)', lineHeight: 1.7, paddingLeft: '1.25rem' }}>
+            <li>Trust and influence patterns</li>
+            <li>Decision-making dynamics</li>
+            <li>Key connectors and bridges</li>
+            <li>Sub-groups and clusters</li>
             <li>Potential tension points</li>
-            <li>Group values and language</li>
+            <li>Shared values and language</li>
           </ul>
         </div>
       </div>
+      
+      <p className="text-muted" style={{ textAlign: 'center', marginTop: 'var(--space-6)', fontSize: '0.8125rem' }}>
+        Have a survey link? It will direct you to the right place.
+      </p>
     </div>
   );
 }
