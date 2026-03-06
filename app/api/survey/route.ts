@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getIronSession } from 'iron-session';
 import { initializeDatabase, createMember, getMemberByAnonymousId, updateMember, saveSurveyResponse, getAllMembers, getAllRelationships, getAllResponsesWithMembers, getSurveyResponses, getMemberCount, getSurveyStats, saveRelationship, getInferredProperties, saveInferredProperty, getTribeSignals, saveTribeSignal, getMember, getRelationships, isConfigured } from '@/lib/db';
 import { analyzeTribe } from '@/lib/analytics/engine';
-import { sessionOptions, SessionData } from '@/lib/auth';
+import { verifyAdminSession } from '@/lib/auth';
 
 // Actions that require admin authentication
 const adminActions = [
@@ -15,12 +14,6 @@ const adminActions = [
   'generate_link',
   'get_relationships'
 ];
-
-async function requireAdmin(request: NextRequest): Promise<boolean> {
-  const res = NextResponse.json({});
-  const session = await getIronSession<SessionData>(request, res, sessionOptions);
-  return (session as SessionData).isAdmin === true;
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,7 +28,7 @@ export async function POST(request: NextRequest) {
 
     // Check admin auth for protected actions
     if (adminActions.includes(action)) {
-      const isAdmin = await requireAdmin(request);
+      const isAdmin = await verifyAdminSession(request);
       if (!isAdmin) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }

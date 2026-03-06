@@ -68,13 +68,17 @@ Visit http://localhost:3000
 
 1. Push code to GitHub
 2. Import project in Vercel environment
-3. Add environment variables in Vercel project settings:
+3. Add **required** environment variables in Vercel project settings:
    - `DATABASE_URL` = your Neon pooled connection string
    - `ADMIN_PASSWORD` = your secure admin password
-   - `SESSION_SECRET` = generate with `openssl rand -base64 32` (optional)
+   - `SESSION_SECRET` = generate with `openssl rand -base64 32` (**required in production**, min 32 chars)
 4. Deploy
 
-**Important**: The admin dashboard (`/admin`) is now password-protected. Use the password you set in `ADMIN_PASSWORD` to log in.
+**Important**: 
+- The admin dashboard (`/admin`) is password-protected
+- `SESSION_SECRET` is **required** in production and must be at least 32 characters
+- The app will fail to start in production without a valid `SESSION_SECRET`
+- Generate one locally with: `openssl rand -base64 32`
 
 ## Usage
 
