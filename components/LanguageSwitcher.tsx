@@ -14,7 +14,7 @@ export default function LanguageSwitcher() {
     }}>
       <span style={{ color: 'var(--text-muted)' }}>{t.language.label}:</span>
       <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-        {(['en', 'fr', 'hr'] as const).map((lang) => (
+        {(['en', 'fr'] as const).map((lang) => (
           <button
             key={lang}
             onClick={() => setLanguage(lang)}

@@ -21,7 +21,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     setMounted(true);
     // Load language preference from localStorage
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored && ['en', 'fr', 'hr'].includes(stored)) {
+    if (stored && ['en', 'fr'].includes(stored)) {
       setLanguageState(stored as Language);
     }
   }, []);

@@ -40,11 +40,22 @@ export async function initializeDatabase() {
     anonymous_id TEXT UNIQUE,
     display_name TEXT,
     email TEXT,
+    full_name TEXT,
+    date_of_birth TEXT,
+    profession TEXT,
+    primary_language TEXT,
+    additional_languages TEXT DEFAULT '[]',
+    role_in_tribe TEXT,
+    tenure TEXT,
+    city_location TEXT,
+    profile_notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     status TEXT DEFAULT 'pending',
     survey_stage TEXT DEFAULT 'none',
     consent_data INTEGER DEFAULT 0,
     consent_followup INTEGER DEFAULT 0,
+    consent_storage INTEGER DEFAULT 0,
+    consent_analysis INTEGER DEFAULT 0,
     metadata TEXT DEFAULT '{}'
   );`;
 
@@ -113,20 +124,56 @@ export interface MemberRow {
   anonymous_id: string;
   display_name: string | null;
   email: string | null;
+  full_name: string | null;
+  date_of_birth: string | null;
+  profession: string | null;
+  primary_language: string | null;
+  additional_languages: string;
+  role_in_tribe: string | null;
+  tenure: string | null;
+  city_location: string | null;
+  profile_notes: string | null;
   created_at: Date;
   status: string;
   survey_stage: string;
   consent_data: number;
   consent_followup: number;
+  consent_storage: number;
+  consent_analysis: number;
   metadata: string;
 }
 
-export async function createMember(data: { display_name?: string; email?: string; anonymous_id?: string }): Promise<string> {
+export interface CreateMemberData {
+  display_name?: string;
+  email?: string;
+  anonymous_id?: string;
+  full_name?: string;
+  date_of_birth?: string;
+  profession?: string;
+  primary_language?: string;
+  additional_languages?: string[];
+  role_in_tribe?: string;
+  tenure?: string;
+  city_location?: string;
+  profile_notes?: string;
+}
+
+export async function createMember(data: CreateMemberData): Promise<string> {
   const id = uuidv4();
   const anonId = data.anonymous_id || uuidv4();
   await runQuery(
-    `INSERT INTO members (id, anonymous_id, display_name, email, status, survey_stage) VALUES ($1, $2, $3, $4, 'pending', 'none')`,
-    [id, anonId, data.display_name || null, data.email || null]
+    `INSERT INTO members (
+      id, anonymous_id, display_name, email, full_name, date_of_birth, 
+      profession, primary_language, additional_languages, role_in_tribe, 
+      tenure, city_location, profile_notes, status, survey_stage
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'pending', 'none')`,
+    [
+      id, anonId, data.display_name || null, data.email || null,
+      data.full_name || null, data.date_of_birth || null, data.profession || null,
+      data.primary_language || null, JSON.stringify(data.additional_languages || []),
+      data.role_in_tribe || null, data.tenure || null, data.city_location || null,
+      data.profile_notes || null
+    ]
   );
   return id;
 }
@@ -139,17 +186,52 @@ export async function getMemberByAnonymousId(anonymousId: string): Promise<Membe
   return runSingle<MemberRow>('SELECT * FROM members WHERE anonymous_id = $1', [anonymousId]);
 }
 
-export async function updateMember(id: string, data: Partial<{
-  status: string;
-  survey_stage: string;
-  consent_data: number;
-  consent_followup: number;
-  display_name: string;
-  email: string;
-  metadata: string;
-}>) {
-  const fields = Object.keys(data);
-  const values = Object.values(data);
+export interface UpdateMemberData {
+  status?: string;
+  survey_stage?: string;
+  consent_data?: number;
+  consent_followup?: number;
+  consent_storage?: number;
+  consent_analysis?: number;
+  display_name?: string;
+  email?: string;
+  full_name?: string;
+  date_of_birth?: string;
+  profession?: string;
+  primary_language?: string;
+  additional_languages?: string[];
+  role_in_tribe?: string;
+  tenure?: string;
+  city_location?: string;
+  profile_notes?: string;
+  metadata?: string;
+}
+
+export async function updateMember(id: string, data: UpdateMemberData) {
+  const fields: string[] = [];
+  const values: any[] = [];
+  
+  // Handle simple fields
+  const simpleFields = [
+    'status', 'survey_stage', 'consent_data', 'consent_followup', 
+    'consent_storage', 'consent_analysis', 'display_name', 'email',
+    'full_name', 'date_of_birth', 'profession', 'primary_language',
+    'role_in_tribe', 'tenure', 'city_location', 'profile_notes', 'metadata'
+  ];
+  
+  simpleFields.forEach(field => {
+    if (data[field as keyof UpdateMemberData] !== undefined) {
+      fields.push(field);
+      values.push(data[field as keyof UpdateMemberData]);
+    }
+  });
+  
+  // Handle array fields (need JSON stringification)
+  if (data.additional_languages !== undefined) {
+    fields.push('additional_languages');
+    values.push(JSON.stringify(data.additional_languages));
+  }
+  
   if (fields.length === 0) return;
   
   const setClause = fields.map((f, i) => `${f} = $${i + 2}`).join(', ');
