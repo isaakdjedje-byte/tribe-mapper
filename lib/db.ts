@@ -566,8 +566,8 @@ export interface SubmissionDetail {
   display_name: string;
   anonymous_id: string;
   submitted_at: Date;
-  profile_responses: { question_id: string; answer_value: string }[];
-  relationship_responses: { question_id: string; answer_value: string }[];
+  profile_data: { field: string; value: string }[];
+  relationships: { type: string; target_name: string; target_id: string }[];
   reflection_responses: { question_id: string; answer_value: string }[];
 }
 
@@ -575,27 +575,49 @@ export async function getSubmissionDetail(memberId: string, surveyType: string):
   const member = await getMember(memberId);
   const rawResponses = await getSurveyResponses(memberId, surveyType);
   const responses = rawResponses as { question_id: string; answer_value: string; created_at: Date }[];
+  const memberRelationships = await getRelationships(undefined, memberId);
   
   if (!member) return undefined;
   
-  const profile_responses: { question_id: string; answer_value: string }[] = [];
-  const relationship_responses: { question_id: string; answer_value: string }[] = [];
+  const profile_data: { field: string; value: string }[] = [];
+  const relationship_nominations: { type: string; target_name: string; target_id: string }[] = [];
   const reflection_responses: { question_id: string; answer_value: string }[] = [];
   
-  responses.forEach(r => {
-    const parsed = tryParseJson(r.answer_value);
-    const entry = { question_id: r.question_id, answer_value: typeof parsed === 'string' ? parsed : r.answer_value };
-    
-    if (r.question_id.includes('reflection') || r.question_id === 'reflection_health' || r.question_id === 'reflection_connected' || r.question_id === 'reflection_missing') {
-      reflection_responses.push(entry);
-    } else if (r.question_id.includes('friends_') || r.question_id.includes('family_') || r.question_id.includes('tribe_')) {
-      relationship_responses.push(entry);
-    } else {
-      profile_responses.push(entry);
+  if (member.display_name) profile_data.push({ field: 'display_name', value: member.display_name });
+  if (member.full_name) profile_data.push({ field: 'full_name', value: member.full_name });
+  if (member.email) profile_data.push({ field: 'email', value: member.email });
+  if (member.phone_number) profile_data.push({ field: 'phone_number', value: member.phone_number });
+  if (member.date_of_birth) profile_data.push({ field: 'date_of_birth', value: member.date_of_birth });
+  if (member.profession) profile_data.push({ field: 'profession', value: member.profession });
+  if (member.current_activity_or_job_title) profile_data.push({ field: 'current_activity_or_job_title', value: member.current_activity_or_job_title });
+  if (member.primary_language) profile_data.push({ field: 'primary_language', value: member.primary_language });
+  if (member.additional_languages) profile_data.push({ field: 'additional_languages', value: member.additional_languages });
+  if (member.role_in_tribe) profile_data.push({ field: 'role_in_tribe', value: member.role_in_tribe });
+  if (member.tenure) profile_data.push({ field: 'tenure', value: member.tenure });
+  if (member.current_city) profile_data.push({ field: 'current_city', value: member.current_city });
+  if (member.current_country) profile_data.push({ field: 'current_country', value: member.current_country });
+  
+  memberRelationships.forEach((rel: any) => {
+    if (rel.source_id === memberId) {
+      relationship_nominations.push({
+        type: rel.relationship_type,
+        target_name: rel.target_name || rel.target_id,
+        target_id: rel.target_id
+      });
     }
   });
   
-  const submitted_at = responses.length > 0 ? responses.reduce((max, r) => r.created_at > max ? r.created_at : max, responses[0].created_at) : new Date();
+  responses.forEach(r => {
+    if (r.question_id.includes('reflection') || r.question_id === 'reflection_health' || r.question_id === 'reflection_connected' || r.question_id === 'reflection_missing') {
+      const parsed = tryParseJson(r.answer_value);
+      reflection_responses.push({ 
+        question_id: r.question_id, 
+        answer_value: typeof parsed === 'string' ? parsed : r.answer_value 
+      });
+    }
+  });
+  
+  const submitted_at = responses.length > 0 ? responses.reduce((max, r) => r.created_at > max ? r.created_at : max, responses[0].created_at) : member.created_at;
   
   return {
     member_id: memberId,
@@ -603,8 +625,8 @@ export async function getSubmissionDetail(memberId: string, surveyType: string):
     display_name: member.display_name || 'Anonymous',
     anonymous_id: member.anonymous_id || '',
     submitted_at,
-    profile_responses,
-    relationship_responses,
+    profile_data,
+    relationships: relationship_nominations,
     reflection_responses
   };
 }

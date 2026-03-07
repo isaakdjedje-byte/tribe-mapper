@@ -49,8 +49,8 @@ interface SubmissionDetail {
   display_name: string;
   anonymous_id: string;
   submitted_at: string;
-  profile_responses: { question_id: string; answer_value: string }[];
-  relationship_responses: { question_id: string; answer_value: string }[];
+  profile_data: { field: string; value: string }[];
+  relationships: { type: string; target_name: string; target_id: string }[];
   reflection_responses: { question_id: string; answer_value: string }[];
 }
 
@@ -463,30 +463,25 @@ export default function AdminDashboard() {
                 <div><span className="text-muted">Submitted:</span> {selectedSubmission.submitted_at ? new Date(selectedSubmission.submitted_at).toLocaleString() : '—'}</div>
               </div>
 
-              {selectedSubmission.profile_responses.length > 0 && (
+              {selectedSubmission.profile_data && selectedSubmission.profile_data.length > 0 && (
                 <div style={{ marginBottom: 'var(--space-4)' }}>
                   <h4 style={{ fontSize: '0.875rem', marginBottom: 'var(--space-2)', paddingBottom: 'var(--space-2)', borderBottom: '1px solid var(--border)' }}>Profile</h4>
-                  {selectedSubmission.profile_responses.map((r, i) => (
+                  {selectedSubmission.profile_data.map((r, i) => (
                     <div key={i} style={{ fontSize: '0.8rem', marginBottom: 'var(--space-1)' }}>
-                      <span className="text-muted">{r.question_id}:</span> {String(r.answer_value).substring(0, 100)}
+                      <span className="text-muted">{r.field}:</span> {String(r.value).substring(0, 100)}
                     </div>
                   ))}
                 </div>
               )}
 
-              {selectedSubmission.relationship_responses.length > 0 && (
+              {selectedSubmission.relationships && selectedSubmission.relationships.length > 0 && (
                 <div style={{ marginBottom: 'var(--space-4)' }}>
                   <h4 style={{ fontSize: '0.875rem', marginBottom: 'var(--space-2)', paddingBottom: 'var(--space-2)', borderBottom: '1px solid var(--border)' }}>Relationships / Nominations</h4>
-                  {selectedSubmission.relationship_responses.map((r, i) => {
-                    let parsed: any = r.answer_value;
-                    try { parsed = JSON.parse(r.answer_value); } catch {}
-                    const names = Array.isArray(parsed) ? parsed : [];
-                    return (
-                      <div key={i} style={{ fontSize: '0.8rem', marginBottom: 'var(--space-1)' }}>
-                        <span className="text-muted">{r.question_id}:</span> {names.length > 0 ? names.join(', ') : 'None'}
-                      </div>
-                    );
-                  })}
+                  {selectedSubmission.relationships.map((r, i) => (
+                    <div key={i} style={{ fontSize: '0.8rem', marginBottom: 'var(--space-1)' }}>
+                      <span className="text-muted">{r.type}:</span> {r.target_name || r.target_id}
+                    </div>
+                  ))}
                 </div>
               )}
 
@@ -601,6 +596,7 @@ export default function AdminDashboard() {
                     <td className="text-muted">{link.submitted_at ? new Date(link.submitted_at).toLocaleDateString() : '—'}</td>
                     <td>
                       <div className="flex gap-2">
+                        <button className="btn btn-small" style={{ color: 'var(--primary)', border: 'none', background: 'none' }} onClick={() => window.open(`/survey/${link.token}`, '_blank')}>Open</button>
                         <button className="btn btn-small" style={{ color: 'var(--primary)', border: 'none', background: 'none' }} onClick={() => copyLink(`/survey/${link.token}`)}>Copy</button>
                         {link.status === 'active' ? (
                           <button className="btn btn-small" style={{ color: 'var(--danger)', border: 'none', background: 'none' }} onClick={() => handleDeactivateLink(link.id)}>Deactivate</button>
