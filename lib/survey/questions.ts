@@ -1,524 +1,611 @@
+// New Survey Model for TribeMapper
+// Supports friends/family/tribe contexts with natural wording
+
+import { SurveyContext } from './context';
+
+export type QuestionType = 
+  | 'text' 
+  | 'textarea' 
+  | 'single' 
+  | 'multi' 
+  | 'scale' 
+  | 'nominate' 
+  | 'date' 
+  | 'checkbox';
+
 export interface Question {
   id: string;
   section: string;
+  sectionFr: string;
   question: string;
+  questionFr: string;
   description?: string;
-  type: 'text' | 'textarea' | 'single' | 'multi' | 'scale' | 'nominate' | 'duration' | 'scenario';
-  options?: { value: string; label: string; description?: string }[];
+  descriptionFr?: string;
+  type: QuestionType;
+  options?: { value: string; label: string; labelFr: string }[];
   placeholder?: string;
+  placeholderFr?: string;
   required: boolean;
   maxSelections?: number;
   minSelections?: number;
-  internal_mapping: {
-    signal_type: string;
-    edge_type?: string;
-    property_type?: string;
-    scoring_notes?: string;
-  };
-  logic?: {
-    show_if?: { question_id: string; operator: 'equals' | 'not_equals' | 'contains'; value: any };
-  };
+  // Where this data belongs
+  dataTarget: 'member_profile' | 'survey_response' | 'relationship';
+  // Field mapping for member profile updates
+  profileField?: string;
+  // Relationship type if applicable
+  relationshipType?: string;
 }
 
-export const SURVEY1_QUESTIONS: Question[] = [
-  {
-    id: 'a1_name',
-    section: 'Identity',
-    question: 'What should we call you?',
-    description: 'This is how you\'ll appear in the system. You can use your real name or a nickname.',
-    type: 'text',
-    placeholder: 'Your name or alias',
-    required: false,
-    internal_mapping: {
-      signal_type: 'identity',
-      property_type: 'display_name'
-    }
-  },
-  {
-    id: 'a2_role',
-    section: 'Identity',
-    question: 'How would you describe your role in this group?',
-    description: 'Think about what you actually do, not just a title.',
-    type: 'textarea',
-    placeholder: 'e.g., I coordinate between teams, I handle the numbers, I keep things moving...',
-    required: true,
-    maxSelections: 100,
-    internal_mapping: {
-      signal_type: 'self_role_description',
-      property_type: 'role_self_description'
-    }
-  },
-  {
-    id: 'a3_duration',
-    section: 'Identity',
-    question: 'How long have you been part of this group?',
-    type: 'single',
-    required: true,
-    options: [
-      { value: 'less_3mo', label: 'Less than 3 months' },
-      { value: '3mo_1yr', label: '3 months to 1 year' },
-      { value: '1yr_2yr', label: '1 to 2 years' },
-      { value: '2yr_5yr', label: '2 to 5 years' },
-      { value: '5yr_plus', label: 'More than 5 years' }
-    ],
-    internal_mapping: {
-      signal_type: 'tenure',
-      property_type: 'member_tenure'
-    }
-  },
-  {
-    id: 'b1_trust',
-    section: 'Relationships',
-    question: 'Who in the group do you trust most?',
-    description: 'People you would go to with a problem, share sensitive info with, or rely on when it matters. List up to 5.',
-    type: 'nominate',
-    required: true,
-    maxSelections: 5,
-    internal_mapping: {
-      signal_type: 'trust_nomination',
-      edge_type: 'trust',
-      property_type: 'trusted_by'
-    }
-  },
-  {
-    id: 'b2_collaboration',
-    section: 'Relationships',
-    question: 'Who do you work with most closely on group activities?',
-    description: 'People you regularly coordinate with, collaborate with, or work alongside.',
-    type: 'nominate',
-    required: true,
-    maxSelections: 8,
-    internal_mapping: {
-      signal_type: 'collaboration_nomination',
-      edge_type: 'collaboration',
-      property_type: 'collaborates_with'
-    }
-  },
-  {
-    id: 'b3_influence',
-    section: 'Relationships',
-    question: 'Whose opinions typically sway decisions in the group?',
-    description: 'When these people speak up, others tend to listen and go along.',
-    type: 'nominate',
-    required: true,
-    maxSelections: 5,
-    internal_mapping: {
-      signal_type: 'influence_nomination',
-      edge_type: 'influence',
-      property_type: 'influenced_by'
-    }
-  },
-  {
-    id: 'b4_conflicts',
-    section: 'Relationships',
-    question: 'Are there people you sometimes disagree with or find difficult to work with?',
-    description: 'This is private. It helps identify tension points. You can skip this.',
-    type: 'nominate',
-    required: false,
-    maxSelections: 5,
-    internal_mapping: {
-      signal_type: 'conflict_nomination',
-      edge_type: 'conflict',
-      property_type: 'tension_with'
-    }
-  },
-  {
-    id: 'c1_decision',
-    section: 'Behavior',
-    question: 'A major decision needs to be made. What typically happens?',
-    description: 'Think about how decisions actually get made in practice.',
-    type: 'scenario',
-    required: true,
-    options: [
-      { value: 'leader_decides', label: 'One or two people decide for everyone', description: 'A clear leader or small group makes the call' },
-      { value: 'consensus', label: 'We discuss until we reach consensus', description: 'Everyone talks until we all agree' },
-      { value: 'vote', label: 'We take a vote', description: 'Majority rules' },
-      { value: 'organic', label: 'It emerges organically', description: 'Decisions just sort of happen without explicit process' }
-    ],
-    internal_mapping: {
-      signal_type: 'decision_pattern',
-      property_type: 'culture_decision_style'
-    }
-  },
-  {
-    id: 'c2_conflict',
-    section: 'Behavior',
-    question: 'A disagreement emerges between two members. What usually happens?',
-    type: 'scenario',
-    required: true,
-    options: [
-      { value: 'avoid', label: 'It gets avoided or swept under the rug', description: 'People try not to make it a thing' },
-      { value: 'mediate', label: 'Someone mediates or facilitates', description: 'A third party helps work it through' },
-      { value: 'confront', label: 'People work it out directly', description: 'Those involved hash it out' },
-      { value: 'escalate', label: 'It gets escalated to leadership', description: 'Leaders step in to resolve' }
-    ],
-    internal_mapping: {
-      signal_type: 'conflict_resolution',
-      property_type: 'culture_conflict_style'
-    }
-  },
-  {
-    id: 'c3_initiative',
-    section: 'Behavior',
-    question: 'Someone has an idea for a new project or initiative. What usually occurs?',
-    type: 'scenario',
-    required: true,
-    options: [
-      { value: 'permission', label: 'They need permission to proceed', description: 'Ideas require approval from leadership' },
-      { value: 'volunteers', label: 'A few volunteers form a team', description: 'Those interested naturally coalesce' },
-      { value: 'anyone_jumps', label: 'Anyone can just jump in and start', description: 'No formal process needed' },
-      { value: 'committee', label: 'It goes to a committee for evaluation', description: 'Structured assessment before proceeding' }
-    ],
-    internal_mapping: {
-      signal_type: 'initiative_pattern',
-      property_type: 'culture_initiation_style'
-    }
-  },
-  {
-    id: 'c4_information',
-    section: 'Behavior',
-    question: 'Important news or information travels through the group. How?',
-    type: 'scenario',
-    required: true,
-    options: [
-      { value: 'top_down', label: 'Top-down announcements', description: 'Leaders share with the group' },
-      { value: 'hubs', label: 'Through a few key hubs', description: 'Certain people spread it to others' },
-      { value: 'network', label: 'Network of conversations', description: 'Information flows through many conversations' },
-      { value: 'chaos', label: 'It\'s a bit chaotic', description: 'Not clear how info travels, sometimes people find out late' }
-    ],
-    internal_mapping: {
-      signal_type: 'information_flow',
-      property_type: 'culture_communication_style'
-    }
-  },
-  {
-    id: 'd1_values',
-    section: 'Values',
-    question: 'What matters most to this group?',
-    description: 'Select the 3 that best represent what this group actually cares about.',
-    type: 'multi',
-    required: true,
-    minSelections: 3,
-    maxSelections: 3,
-    options: [
-      { value: 'quality', label: 'Quality & Excellence', description: 'Doing things at the highest level' },
-      { value: 'speed', label: 'Speed & Results', description: 'Getting things done fast' },
-      { value: 'community', label: 'Community & Belonging', description: 'People and relationships first' },
-      { value: 'innovation', label: 'Innovation & experimentation', description: 'Trying new things' },
-      { value: 'stability', label: 'Stability & reliability', description: 'Consistency and predictability' },
-      { value: 'autonomy', label: 'Independence & autonomy', description: 'Freedom to work as you see fit' },
-      { value: 'impact', label: 'Impact & purpose', description: 'Making a real difference' },
-      { value: 'fairness', label: 'Fairness & equality', description: 'Level playing field for everyone' }
-    ],
-    internal_mapping: {
-      signal_type: 'values_nomination',
-      property_type: 'group_values'
-    }
-  },
-  {
-    id: 'd2_language',
-    section: 'Values',
-    question: 'What words, phrases, or inside jokes would a newcomer not understand?',
-    description: 'These are the things that make this group feel like a tribe.',
-    type: 'textarea',
-    placeholder: 'e.g., "That\'s a Yanny moment", "The Friday sync", "Project Phoenix"...',
-    required: true,
-    maxSelections: 200,
-    internal_mapping: {
-      signal_type: 'tribe_language',
-      property_type: 'shared_vocabulary'
-    }
-  },
-  {
-    id: 'd3_experiences',
-    section: 'Values',
-    question: 'What moments or experiences define this group?',
-    description: 'The shared memories that bind everyone together.',
-    type: 'textarea',
-    placeholder: 'e.g., The big launch, the retreat, that crisis we weathered together...',
-    required: true,
-    maxSelections: 300,
-    internal_mapping: {
-      signal_type: 'shared_experiences',
-      property_type: 'group_narrative'
-    }
-  },
-  {
-    id: 'd4_vision',
-    section: 'Values',
-    question: 'What should this group be working toward?',
-    description: 'Your vision for where we\'re headed.',
-    type: 'textarea',
-    placeholder: 'Where should we be in 1 year? What\'s the big goal?',
-    required: true,
-    maxSelections: 300,
-    internal_mapping: {
-      signal_type: 'vision',
-      property_type: 'group_aspiration'
-    }
-  },
-  {
-    id: 'e1_health',
-    section: 'Perception',
-    question: 'How would you describe the group\'s current state?',
-    type: 'scale',
-    required: true,
-    options: [
-      { value: '1', label: 'Struggling', description: 'Significant challenges, unclear direction' },
-      { value: '2', label: 'Challenged', description: 'Working through difficulties' },
-      { value: '3', label: 'Stable', description: 'Getting by, but not thriving' },
-      { value: '4', label: 'Growing', description: 'Making progress, things are working' },
-      { value: '5', label: 'Thriving', description: 'Strong, aligned, accomplishing goals' }
-    ],
-    internal_mapping: {
-      signal_type: 'group_health',
-      property_type: 'perceived_group_state'
-    }
-  },
-  {
-    id: 'e2_influence',
-    section: 'Perception',
-    question: 'How do you see your influence in this group?',
-    description: 'Slide to where you think you fall.',
-    type: 'scale',
-    required: true,
-    options: [
-      { value: '1', label: 'Minimal', description: 'I participate but don\'t sway much' },
-      { value: '2', label: 'Some influence', description: 'My views carry some weight' },
-      { value: '3', label: 'Moderate', description: 'I have a noticeable impact' },
-      { value: '4', label: 'High', description: 'People often look to me' },
-      { value: '5', label: 'Very high', description: 'I significantly shape direction' }
-    ],
-    internal_mapping: {
-      signal_type: 'self_perceived_influence',
-      property_type: 'self_centrality'
-    }
-  }
-];
+// Helper to create context-aware questions
+function createContextQuestions(context: SurveyContext): {
+  profile: Question[];
+  relationships: Question[];
+  reflection: Question[];
+} {
+  const isFriends = context === 'friends';
+  const isFamily = context === 'family';
+  const isTribe = context === 'tribe';
 
-export const SURVEY2_TRIGGER_CRITERIA = [
-  {
-    id: 'high_centrality_low_trust',
-    name: 'High Centrality, Low Trust',
-    description: 'Member is nominated frequently but doesn\'t reciprocate',
-    trigger: (member: any, allMembers: any[], relationships: any[]) => {
-      const nominations = relationships.filter(r => r.target_id === member.id && r.relationship_type === 'trust');
-      const reciprocations = relationships.filter(r => 
-        r.source_id === member.id && 
-        relationships.some(r2 => r2.target_id === member.id && r2.source_id === r.target_id && r2.relationship_type === 'trust')
-      );
-      return nominations.length >= 3 && reciprocations.length < nominations.length * 0.5;
+  // PROFILE MODULE - Common for all contexts
+  const profile: Question[] = [
+    {
+      id: 'preferred_name',
+      section: 'Your Profile',
+      sectionFr: 'Ton Profil',
+      question: 'What should we call you?',
+      questionFr: 'Comment devrions-nous t\'appeler ?',
+      description: 'This is how you\'ll appear in the system.',
+      descriptionFr: 'C\'est comme ça que tu apparaîtras dans le système.',
+      type: 'text',
+      placeholder: 'Your name or nickname',
+      placeholderFr: 'Ton nom ou surnom',
+      required: true,
+      dataTarget: 'member_profile',
+      profileField: 'display_name'
+    },
+    {
+      id: 'full_name',
+      section: 'Your Profile',
+      sectionFr: 'Ton Profil',
+      question: 'What is your full name?',
+      questionFr: 'Quel est ton nom complet ?',
+      type: 'text',
+      placeholder: 'Full legal name',
+      placeholderFr: 'Nom complet',
+      required: true,
+      dataTarget: 'member_profile',
+      profileField: 'full_name'
+    },
+    {
+      id: 'date_of_birth',
+      section: 'Your Profile',
+      sectionFr: 'Ton Profil',
+      question: 'What is your date of birth?',
+      questionFr: 'Quelle est ta date de naissance ?',
+      description: 'We use this so birthdays are never forgotten.',
+      descriptionFr: 'On l\'utilise pour ne jamais oublier les anniversaires.',
+      type: 'date',
+      required: true,
+      dataTarget: 'member_profile',
+      profileField: 'date_of_birth'
+    },
+    {
+      id: 'primary_language',
+      section: 'Your Profile',
+      sectionFr: 'Ton Profil',
+      question: 'What language are you most comfortable with?',
+      questionFr: 'Dans quelle langue es-tu le plus à l\'aise ?',
+      type: 'text',
+      placeholder: 'e.g., English, French, Spanish',
+      placeholderFr: 'ex. Anglais, Français, Espagnol',
+      required: true,
+      dataTarget: 'member_profile',
+      profileField: 'primary_language'
+    },
+    {
+      id: 'additional_languages',
+      section: 'Your Profile',
+      sectionFr: 'Ton Profil',
+      question: 'What other languages do you speak comfortably?',
+      questionFr: 'Quelles autres langues parles-tu facilement ?',
+      description: 'Separate multiple languages with commas',
+      descriptionFr: 'Sépare les langues par des virgules',
+      type: 'text',
+      placeholder: 'e.g., Spanish, German, Mandarin',
+      placeholderFr: 'ex. Espagnol, Allemand, Mandarin',
+      required: false,
+      dataTarget: 'member_profile',
+      profileField: 'additional_languages'
+    },
+    {
+      id: 'role_in_circle',
+      section: 'Your Profile',
+      sectionFr: 'Ton Profil',
+      question: isFriends 
+        ? 'How would you describe your place in this circle of friends?'
+        : isFamily
+        ? 'How would you describe your place in the family?'
+        : 'How would you describe your role in the community?',
+      questionFr: isFriends
+        ? 'Comment décrirais-tu ta place dans ce cercle d\'amis ?'
+        : isFamily
+        ? 'Comment décrirais-tu ta place dans la famille ?'
+        : 'Comment décrirais-tu ton rôle dans la communauté ?',
+      description: 'What is your natural position or function?',
+      descriptionFr: 'Quelle est ta position ou fonction naturelle ?',
+      type: 'textarea',
+      placeholder: isFriends
+        ? 'e.g., The organizer, the listener, the connector...'
+        : isFamily
+        ? 'e.g., The mediator, the practical one, the emotional anchor...'
+        : 'e.g., I coordinate events, I mentor newcomers, I handle communications...',
+      placeholderFr: isFriends
+        ? 'ex. L\'organisateur, l\'écouteur, le connecteur...'
+        : isFamily
+        ? 'ex. Le médiateur, le pragmatique, l\'ancre émotionnelle...'
+        : 'ex. Je coordonne des événements, j\'accompagne les nouveaux...',
+      required: true,
+      dataTarget: 'member_profile',
+      profileField: 'role_in_tribe'
+    },
+    {
+      id: 'tenure',
+      section: 'Your Profile',
+      sectionFr: 'Ton Profil',
+      question: isFriends
+        ? 'How long have you been part of this circle?'
+        : isFamily
+        ? 'How long have you been closely part of this family life?'
+        : 'How long have you been part of this community?',
+      questionFr: isFriends
+        ? 'Depuis combien de temps fais-tu partie de ce cercle ?'
+        : isFamily
+        ? 'Depuis combien de temps participes-tu activement à la vie de famille ?'
+        : 'Depuis combien de temps fais-tu partie de cette communauté ?',
+      type: 'single',
+      required: false,
+      options: [
+        { value: 'less_3mo', label: 'Less than 3 months', labelFr: 'Moins de 3 mois' },
+        { value: '3mo_1yr', label: '3 months to 1 year', labelFr: '3 mois à 1 an' },
+        { value: '1yr_2yr', label: '1 to 2 years', labelFr: '1 à 2 ans' },
+        { value: '2yr_5yr', label: '2 to 5 years', labelFr: '2 à 5 ans' },
+        { value: '5yr_plus', label: 'More than 5 years', labelFr: 'Plus de 5 ans' }
+      ],
+      dataTarget: 'member_profile',
+      profileField: 'tenure'
+    },
+    {
+      id: 'profession',
+      section: 'Your Profile',
+      sectionFr: 'Ton Profil',
+      question: 'What do you do professionally?',
+      questionFr: 'Que fais-tu professionnellement ?',
+      type: 'text',
+      placeholder: 'e.g., Software Engineer, Teacher, Nurse',
+      placeholderFr: 'ex. Ingénieur, Enseignant, Infirmier',
+      required: false,
+      dataTarget: 'member_profile',
+      profileField: 'profession'
+    },
+    {
+      id: 'current_activity',
+      section: 'Your Profile',
+      sectionFr: 'Ton Profil',
+      question: 'What is your current activity or job title?',
+      questionFr: 'Quelle est ton activité actuelle ou ton poste ?',
+      type: 'text',
+      placeholder: 'e.g., Senior Product Manager at Acme Corp',
+      placeholderFr: 'ex. Chef de Projet Senior chez Acme Corp',
+      required: false,
+      dataTarget: 'member_profile',
+      profileField: 'current_activity_or_job_title'
+    },
+    {
+      id: 'email',
+      section: 'Your Profile',
+      sectionFr: 'Ton Profil',
+      question: 'What email should we use for you?',
+      questionFr: 'Quel email devons-nous utiliser pour toi ?',
+      type: 'text',
+      placeholder: 'your@email.com',
+      placeholderFr: 'ton@email.com',
+      required: false,
+      dataTarget: 'member_profile',
+      profileField: 'email'
+    },
+    {
+      id: 'phone_number',
+      section: 'Your Profile',
+      sectionFr: 'Ton Profil',
+      question: 'What phone number should we use for you?',
+      questionFr: 'Quel numéro de téléphone devons-nous utiliser pour toi ?',
+      type: 'text',
+      placeholder: '+1 234 567 8900',
+      placeholderFr: '+33 6 12 34 56 78',
+      required: false,
+      dataTarget: 'member_profile',
+      profileField: 'phone_number'
+    },
+    {
+      id: 'current_city',
+      section: 'Your Profile',
+      sectionFr: 'Ton Profil',
+      question: 'What city do you currently live in?',
+      questionFr: 'Dans quelle ville vis-tu actuellement ?',
+      type: 'text',
+      placeholder: 'e.g., Paris, New York, Tokyo',
+      placeholderFr: 'ex. Paris, New York, Tokyo',
+      required: false,
+      dataTarget: 'member_profile',
+      profileField: 'current_city'
+    },
+    {
+      id: 'current_country',
+      section: 'Your Profile',
+      sectionFr: 'Ton Profil',
+      question: 'What country do you currently live in?',
+      questionFr: 'Dans quel pays vis-tu actuellement ?',
+      type: 'text',
+      placeholder: 'e.g., France, USA, Japan',
+      placeholderFr: 'ex. France, États-Unis, Japon',
+      required: false,
+      dataTarget: 'member_profile',
+      profileField: 'current_country'
+    },
+    {
+      id: 'consent_storage',
+      section: 'Consent',
+      sectionFr: 'Consentement',
+      question: 'I consent to storing my profile and survey data',
+      questionFr: 'Je consens au stockage de mon profil et de mes réponses',
+      description: 'Your data will be securely stored and used to understand the network.',
+      descriptionFr: 'Tes données seront stockées en toute sécurité pour comprendre le réseau.',
+      type: 'checkbox',
+      required: true,
+      dataTarget: 'member_profile',
+      profileField: 'consent_storage'
+    },
+    {
+      id: 'consent_analysis',
+      section: 'Consent',
+      sectionFr: 'Consentement',
+      question: 'I consent to analyzing this data to understand relationships and patterns',
+      questionFr: 'Je consens à l\'analyse de ces données pour comprendre les relations et schémas',
+      type: 'checkbox',
+      required: true,
+      dataTarget: 'member_profile',
+      profileField: 'consent_analysis'
+    },
+    {
+      id: 'consent_contact',
+      section: 'Consent',
+      sectionFr: 'Consentement',
+      question: 'I consent to being contacted if needed (optional)',
+      questionFr: 'Je consens à être contacté si nécessaire (optionnel)',
+      type: 'checkbox',
+      required: false,
+      dataTarget: 'member_profile',
+      profileField: 'consent_contact'
+    },
+    {
+      id: 'consent_birthday_reminder',
+      section: 'Consent',
+      sectionFr: 'Consentement',
+      question: 'I consent to using my birthday for reminders (optional)',
+      questionFr: 'Je consens à utiliser mon anniversaire pour les rappels (optionnel)',
+      type: 'checkbox',
+      required: false,
+      dataTarget: 'member_profile',
+      profileField: 'consent_birthday_reminder'
     }
-  },
-  {
-    id: 'role_discrepancy',
-    name: 'Role Discrepancy',
-    description: 'Self-description differs significantly from how others describe them',
-    trigger: (member: any, allMembers: any[], relationships: any[]) => {
-      const selfDesc = member.display_name; // Simplified
-      const othersDesc = relationships.filter(r => r.target_id === member.id);
-      return othersDesc.length >= 3; // Placeholder logic
-    }
-  },
-  {
-    id: 'isolated_nominator',
-    name: 'Isolated Nominator',
-    description: 'Member was nominated by many but didn\'t nominate anyone',
-    trigger: (member: any, allMembers: any[], relationships: any[]) => {
-      const nominatedBy = relationships.filter(r => r.target_id === member.id);
-      const nominatedOthers = relationships.filter(r => r.source_id === member.id);
-      return nominatedBy.length >= 2 && nominatedOthers.length === 0;
-    }
-  },
-  {
-    id: 'trust_asymmetry',
-    name: 'Trust Asymmetry',
-    description: 'A trusts B but B doesn\'t trust A (unilateral trust)',
-    trigger: (member: any, allMembers: any[], relationships: any[]) => {
-      const trustGiven = relationships.filter(r => r.source_id === member.id && r.relationship_type === 'trust');
-      return trustGiven.some(t => !relationships.some(r => 
-        r.source_id === t.target_id && 
-        r.target_id === member.id && 
-        r.relationship_type === 'trust'
-      ));
-    }
-  },
-  {
-    id: 'missing_data',
-    name: 'Missing Relationship Data',
-    description: 'No relationship nominations from this member',
-    trigger: (member: any, allMembers: any[], relationships: any[]) => {
-      const hasRelationships = relationships.some(r => r.source_id === member.id);
-      return member.status === 'completed' && !hasRelationships;
-    }
-  }
-];
+  ];
 
-export const SURVEY2_QUESTIONS: Question[] = [
-  {
-    id: 'bridge_1',
-    section: 'Bridge Investigation',
-    question: 'You were mentioned by people in different parts of the group. How do you stay connected across areas?',
-    description: 'We noticed you interact with various subgroups. Tell us about those connections.',
-    type: 'textarea',
-    required: false,
-    placeholder: 'How do you bridge different parts of the group?',
-    internal_mapping: {
-      signal_type: 'bridge_behavior',
-      property_type: 'bridging_connections'
+  // RELATIONSHIP MODULE - Context specific
+  const relationships: Question[] = isFriends ? [
+    {
+      id: 'friends_closest',
+      section: 'Your Connections',
+      sectionFr: 'Tes Connexions',
+      question: 'Who are the friends in this circle you feel closest to?',
+      questionFr: 'Quels sont les amis de ce cercle auxquels tu te sens le plus proche ?',
+      description: 'Select up to 5 people',
+      descriptionFr: 'Sélectionne jusqu\'à 5 personnes',
+      type: 'nominate',
+      required: false,
+      maxSelections: 5,
+      dataTarget: 'relationship',
+      relationshipType: 'closeness'
+    },
+    {
+      id: 'friends_talk_to',
+      section: 'Your Connections',
+      sectionFr: 'Tes Connexions',
+      question: 'Who do you usually turn to when you need to talk?',
+      questionFr: 'À qui te tournes-tu habituellement quand tu as besoin de parler ?',
+      type: 'nominate',
+      required: false,
+      maxSelections: 3,
+      dataTarget: 'relationship',
+      relationshipType: 'support'
+    },
+    {
+      id: 'friends_spend_time',
+      section: 'Your Connections',
+      sectionFr: 'Tes Connexions',
+      question: 'Who do you spend the most time with?',
+      questionFr: 'Avec qui passes-tu le plus de temps ?',
+      type: 'nominate',
+      required: false,
+      maxSelections: 5,
+      dataTarget: 'relationship',
+      relationshipType: 'time_together'
+    },
+    {
+      id: 'friends_supportive',
+      section: 'Your Connections',
+      sectionFr: 'Tes Connexions',
+      question: 'Who is often there for you when you need support?',
+      questionFr: 'Qui est souvent là pour toi quand tu as besoin de soutien ?',
+      type: 'nominate',
+      required: false,
+      maxSelections: 5,
+      dataTarget: 'relationship',
+      relationshipType: 'support'
+    },
+    {
+      id: 'friends_connectors',
+      section: 'Your Connections',
+      sectionFr: 'Tes Connexions',
+      question: 'Who helps keep people connected in this circle?',
+      questionFr: 'Qui aide à garder les gens connectés dans ce cercle ?',
+      description: 'The people who introduce others and bring the group together',
+      descriptionFr: 'Les personnes qui présentent les uns aux autres et rassemblent le groupe',
+      type: 'nominate',
+      required: false,
+      maxSelections: 3,
+      dataTarget: 'relationship',
+      relationshipType: 'bridge'
+    },
+    {
+      id: 'friends_tension',
+      section: 'Your Connections',
+      sectionFr: 'Tes Connexions',
+      question: 'Are there any friendships in this circle that sometimes feel strained or complicated?',
+      questionFr: 'Y a-t-il des amitiés dans ce cercle qui se sentent parfois tendues ou compliquées ?',
+      description: 'This is optional and private. Only name people if you feel comfortable.',
+      descriptionFr: 'C\'est optionnel et privé. Ne nomme que si tu te sens à l\'aise.',
+      type: 'nominate',
+      required: false,
+      maxSelections: 3,
+      dataTarget: 'relationship',
+      relationshipType: 'tension'
     }
-  },
-  {
-    id: 'bridge_2',
-    section: 'Bridge Investigation',
-    question: 'Who in the group would you go to for help with a problem outside your usual area?',
-    type: 'nominate',
-    required: false,
-    maxSelections: 3,
-    internal_mapping: {
-      signal_type: 'cross_cluster_connections',
-      property_type: 'bridge_targets'
+  ] : isFamily ? [
+    {
+      id: 'family_rely_on',
+      section: 'Your Connections',
+      sectionFr: 'Tes Connexions',
+      question: 'Who in the family do you rely on most when something important happens?',
+      questionFr: 'De qui dans la famille dépends-tu le plus quand quelque chose d\'important arrive ?',
+      type: 'nominate',
+      required: false,
+      maxSelections: 5,
+      dataTarget: 'relationship',
+      relationshipType: 'reliance'
+    },
+    {
+      id: 'family_talk_naturally',
+      section: 'Your Connections',
+      sectionFr: 'Tes Connexions',
+      question: 'Who do you speak with most naturally in the family?',
+      questionFr: 'Avec qui parles-tu le plus naturellement dans la famille ?',
+      type: 'nominate',
+      required: false,
+      maxSelections: 5,
+      dataTarget: 'relationship',
+      relationshipType: 'closeness'
+    },
+    {
+      id: 'family_support_difficult',
+      section: 'Your Connections',
+      sectionFr: 'Tes Connexions',
+      question: 'Who usually helps when someone in the family is going through something difficult?',
+      questionFr: 'Qui aide habituellement quand quelqu\'un dans la famille traverse des moments difficiles ?',
+      type: 'nominate',
+      required: false,
+      maxSelections: 5,
+      dataTarget: 'relationship',
+      relationshipType: 'support'
+    },
+    {
+      id: 'family_connectors',
+      section: 'Your Connections',
+      sectionFr: 'Tes Connexions',
+      question: 'Who helps keep different parts of the family connected?',
+      questionFr: 'Qui aide à garder les différentes branches de la famille connectées ?',
+      type: 'nominate',
+      required: false,
+      maxSelections: 3,
+      dataTarget: 'relationship',
+      relationshipType: 'bridge'
+    },
+    {
+      id: 'family_emotional_close',
+      section: 'Your Connections',
+      sectionFr: 'Tes Connexions',
+      question: 'Who do you feel emotionally closest to in the family?',
+      questionFr: 'À qui te sens-tu le plus proche émotionnellement dans la famille ?',
+      type: 'nominate',
+      required: false,
+      maxSelections: 5,
+      dataTarget: 'relationship',
+      relationshipType: 'emotional_closeness'
+    },
+    {
+      id: 'family_tension',
+      section: 'Your Connections',
+      sectionFr: 'Tes Connexions',
+      question: 'Are there any family relationships that currently feel tense or difficult?',
+      questionFr: 'Y a-t-il des relations familiales qui se sentent actuellement tendues ou difficiles ?',
+      description: 'This is optional and completely private.',
+      descriptionFr: 'C\'est optionnel et complètement privé.',
+      type: 'nominate',
+      required: false,
+      maxSelections: 3,
+      dataTarget: 'relationship',
+      relationshipType: 'tension'
     }
-  },
-  {
-    id: 'role_1',
-    section: 'Role Clarification',
-    question: 'How do you see your role changing over the past 6 months?',
-    type: 'single',
-    required: false,
-    options: [
-      { value: 'more_central', label: 'Become more central/influential' },
-      { value: 'less_central', label: 'Become less central' },
-      { value: 'same', label: 'Stayed about the same' },
-      { value: 'changed_nature', label: 'Changed in nature but same level' }
-    ],
-    internal_mapping: {
-      signal_type: 'role_evolution',
-      property_type: 'role_trajectory'
+  ] : [
+    // TRIBE context
+    {
+      id: 'tribe_reliance',
+      section: 'Your Connections',
+      sectionFr: 'Tes Connexions',
+      question: 'Who in this community do you rely on most?',
+      questionFr: 'De qui dans cette communauté dépends-tu le plus ?',
+      type: 'nominate',
+      required: false,
+      maxSelections: 5,
+      dataTarget: 'relationship',
+      relationshipType: 'reliance'
+    },
+    {
+      id: 'tribe_collaboration',
+      section: 'Your Connections',
+      sectionFr: 'Tes Connexions',
+      question: 'Who do you most often build, organize, or work on things with?',
+      questionFr: 'Avec qui construis-tu, organises-tu ou travailles-tu le plus souvent ?',
+      type: 'nominate',
+      required: false,
+      maxSelections: 5,
+      dataTarget: 'relationship',
+      relationshipType: 'collaboration'
+    },
+    {
+      id: 'tribe_advice',
+      section: 'Your Connections',
+      sectionFr: 'Tes Connexions',
+      question: 'Who do you usually turn to for advice or perspective?',
+      questionFr: 'À qui te tournes-tu habituellement pour des conseils ou une perspective ?',
+      type: 'nominate',
+      required: false,
+      maxSelections: 5,
+      dataTarget: 'relationship',
+      relationshipType: 'advice'
+    },
+    {
+      id: 'tribe_influence',
+      section: 'Your Connections',
+      sectionFr: 'Tes Connexions',
+      question: 'Whose perspective tends to carry weight in this community?',
+      questionFr: 'La perspective de qui a tendance à compter dans cette communauté ?',
+      description: 'People whose opinions others listen to',
+      descriptionFr: 'Les personnes dont les opinions sont écoutées',
+      type: 'nominate',
+      required: false,
+      maxSelections: 5,
+      dataTarget: 'relationship',
+      relationshipType: 'influence'
+    },
+    {
+      id: 'tribe_bridges',
+      section: 'Your Connections',
+      sectionFr: 'Tes Connexions',
+      question: 'Who helps connect different parts of the community?',
+      questionFr: 'Qui aide à connecter les différentes parties de la communauté ?',
+      type: 'nominate',
+      required: false,
+      maxSelections: 3,
+      dataTarget: 'relationship',
+      relationshipType: 'bridge'
+    },
+    {
+      id: 'tribe_tension',
+      section: 'Your Connections',
+      sectionFr: 'Tes Connexions',
+      question: 'Are there any relationships in the community that currently feel difficult or tense?',
+      questionFr: 'Y a-t-il des relations dans la communauté qui se sentent actuellement difficiles ou tendues ?',
+      description: 'Optional and private.',
+      descriptionFr: 'Optionnel et privé.',
+      type: 'nominate',
+      required: false,
+      maxSelections: 3,
+      dataTarget: 'relationship',
+      relationshipType: 'tension'
     }
-  },
-  {
-    id: 'role_2',
-    section: 'Role Clarification',
-    question: 'If you had to step back from the group, who could fill your role?',
-    type: 'nominate',
-    required: false,
-    maxSelections: 3,
-    internal_mapping: {
-      signal_type: 'succession',
-      property_type: 'role_successors'
-    }
-  },
-  {
-    id: 'values_1',
-    section: 'Values Deep-dive',
-    question: 'When have you felt most aligned with this group? Describe a specific moment.',
-    type: 'textarea',
-    required: false,
-    placeholder: 'A moment when you felt "this is exactly who we are"...',
-    internal_mapping: {
-      signal_type: 'values_alignment_moment',
-      property_type: 'values_examples'
-    }
-  },
-  {
-    id: 'values_2',
-    section: 'Values Deep-dive',
-    question: 'When have you felt least aligned with this group? Describe a specific moment.',
-    type: 'textarea',
-    required: false,
-    placeholder: 'A moment when you felt "this isn\'t what we\'re about"...',
-    internal_mapping: {
-      signal_type: 'values_tension_moment',
-      property_type: 'tension_examples'
-    }
-  },
-  {
-    id: 'gap_1',
-    section: 'Gap Filling',
-    question: 'Who in the group do you wish you knew better?',
-    description: 'People you\'d like to connect with more.',
-    type: 'nominate',
-    required: false,
-    maxSelections: 3,
-    internal_mapping: {
-      signal_type: 'desired_connections',
-      property_type: 'connection_aspirations'
-    }
-  },
-  {
-    id: 'gap_2',
-    section: 'Gap Filling',
-    question: 'Who in the group seems isolated or disconnected?',
-    description: 'People you think might be on the periphery.',
-    type: 'nominate',
-    required: false,
-    maxSelections: 3,
-    internal_mapping: {
-      signal_type: 'perceived_isolates',
-      property_type: 'isolate_nominations'
-    }
-  },
-  {
-    id: 'influence_1',
-    section: 'Influence Mapping',
-    question: 'Who influences you the most in this group?',
-    type: 'nominate',
-    required: false,
-    maxSelections: 3,
-    internal_mapping: {
-      signal_type: 'influence_sources',
-      property_type: 'personal_influence'
-    }
-  },
-  {
-    id: 'influence_2',
-    section: 'Influence Mapping',
-    question: 'How do you typically influence decisions?',
-    type: 'single',
-    required: false,
-    options: [
-      { value: 'direct', label: 'I speak up directly in discussions' },
-      { value: 'indirect', label: 'I influence through conversations 1-on-1' },
-      { value: 'expert', label: 'My expertise carries weight' },
-      { value: 'behind', label: 'I prefer to work behind the scenes' }
-    ],
-    internal_mapping: {
-      signal_type: 'influence_style',
-      property_type: 'influence_method'
-    }
-  }
-];
+  ];
 
-export function getSurvey2ForMember(memberId: string, triggerCriteria: string[]): Question[] {
-  const questions: Question[] = [];
-  
-  for (const triggerId of triggerCriteria) {
-    switch (triggerId) {
-      case 'high_centrality_low_trust':
-      case 'bridge_investigation':
-        questions.push(...SURVEY2_QUESTIONS.filter(q => q.section === 'Bridge Investigation'));
-        break;
-      case 'role_discrepancy':
-        questions.push(...SURVEY2_QUESTIONS.filter(q => q.section === 'Role Clarification'));
-        break;
-      case 'values_tension':
-        questions.push(...SURVEY2_QUESTIONS.filter(q => q.section === 'Values Deep-dive'));
-        break;
-      case 'missing_data':
-        questions.push(...SURVEY2_QUESTIONS.filter(q => q.section === 'Gap Filling'));
-        break;
-      case 'trust_asymmetry':
-        questions.push(...SURVEY2_QUESTIONS.filter(q => q.section === 'Influence Mapping'));
-        break;
+  // REFLECTION MODULE - Shared across contexts
+  const groupLabel = isFriends ? 'this circle of friends' : isFamily ? 'the family' : 'this community';
+  const groupLabelFr = isFriends ? 'ce cercle d\'amis' : isFamily ? 'la famille' : 'cette communauté';
+
+  const reflection: Question[] = [
+    {
+      id: 'reflection_health',
+      section: 'Reflection',
+      sectionFr: 'Réflexion',
+      question: `How healthy does ${groupLabel} feel to you right now?`,
+      questionFr: `À quel point ${groupLabelFr} te semble-t-elle saine en ce moment ?`,
+      type: 'scale',
+      required: false,
+      options: [
+        { value: '1', label: 'Struggling', labelFr: 'En difficulté' },
+        { value: '2', label: 'Challenged', labelFr: 'Mis à l\'épreuve' },
+        { value: '3', label: 'Stable', labelFr: 'Stable' },
+        { value: '4', label: 'Growing', labelFr: 'En croissance' },
+        { value: '5', label: 'Thriving', labelFr: 'Épanouie' }
+      ],
+      dataTarget: 'survey_response'
+    },
+    {
+      id: 'reflection_connected',
+      section: 'Reflection',
+      sectionFr: 'Réflexion',
+      question: `How connected do you personally feel to ${groupLabel} right now?`,
+      questionFr: `À quel point te sens-tu personnellement connecté à ${groupLabelFr} en ce moment ?`,
+      type: 'scale',
+      required: false,
+      options: [
+        { value: '1', label: 'Not at all', labelFr: 'Pas du tout' },
+        { value: '2', label: 'Slightly', labelFr: 'Un peu' },
+        { value: '3', label: 'Moderately', labelFr: 'Modérément' },
+        { value: '4', label: 'Quite', labelFr: 'Assez' },
+        { value: '5', label: 'Deeply', labelFr: 'Profondément' }
+      ],
+      dataTarget: 'survey_response'
+    },
+    {
+      id: 'reflection_missing',
+      section: 'Reflection',
+      sectionFr: 'Réflexion',
+      question: `Is there anything important about ${groupLabel} that would be missed if we only looked at names and connections?`,
+      questionFr: `Y a-t-il quelque chose d\'important à propos de ${groupLabelFr} qui serait manqué si on ne regardait que les noms et connexions ?`,
+      description: 'Tell us what matters that the data might not capture',
+      descriptionFr: 'Dis-nous ce qui compte que les données pourraient ne pas capturer',
+      type: 'textarea',
+      placeholder: 'e.g., The unspoken dynamics, recent changes, hopes for the future...',
+      placeholderFr: 'ex. Les dynamiques tacites, les changements récents, les espoirs pour l\'avenir...',
+      required: false,
+      dataTarget: 'survey_response'
     }
-  }
-  
-  // Remove duplicates
-  const seen = new Set();
-  return questions.filter(q => {
-    if (seen.has(q.id)) return false;
-    seen.add(q.id);
-    return true;
-  });
+  ];
+
+  return { profile, relationships, reflection };
+}
+
+export function getSurveyQuestions(context: SurveyContext): Question[] {
+  const { profile, relationships, reflection } = createContextQuestions(context);
+  return [...profile, ...relationships, ...reflection];
+}
+
+export function getProfileQuestions(context: SurveyContext): Question[] {
+  return createContextQuestions(context).profile;
+}
+
+export function getRelationshipQuestions(context: SurveyContext): Question[] {
+  return createContextQuestions(context).relationships;
+}
+
+export function getReflectionQuestions(context: SurveyContext): Question[] {
+  return createContextQuestions(context).reflection;
 }

@@ -40,14 +40,20 @@ export async function initializeDatabase() {
     anonymous_id TEXT UNIQUE,
     display_name TEXT,
     email TEXT,
+    phone_number TEXT,
     full_name TEXT,
     date_of_birth TEXT,
     profession TEXT,
+    current_activity_or_job_title TEXT,
     primary_language TEXT,
     additional_languages TEXT DEFAULT '[]',
     role_in_tribe TEXT,
     tenure TEXT,
-    city_location TEXT,
+    current_address_line1 TEXT,
+    current_address_line2 TEXT,
+    current_city TEXT,
+    current_postal_code TEXT,
+    current_country TEXT,
     profile_notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     status TEXT DEFAULT 'pending',
@@ -56,6 +62,8 @@ export async function initializeDatabase() {
     consent_followup INTEGER DEFAULT 0,
     consent_storage INTEGER DEFAULT 0,
     consent_analysis INTEGER DEFAULT 0,
+    consent_contact INTEGER DEFAULT 0,
+    consent_birthday_reminder INTEGER DEFAULT 0,
     metadata TEXT DEFAULT '{}'
   );`;
 
@@ -124,14 +132,20 @@ export interface MemberRow {
   anonymous_id: string;
   display_name: string | null;
   email: string | null;
+  phone_number: string | null;
   full_name: string | null;
   date_of_birth: string | null;
   profession: string | null;
+  current_activity_or_job_title: string | null;
   primary_language: string | null;
   additional_languages: string;
   role_in_tribe: string | null;
   tenure: string | null;
-  city_location: string | null;
+  current_address_line1: string | null;
+  current_address_line2: string | null;
+  current_city: string | null;
+  current_postal_code: string | null;
+  current_country: string | null;
   profile_notes: string | null;
   created_at: Date;
   status: string;
@@ -140,21 +154,29 @@ export interface MemberRow {
   consent_followup: number;
   consent_storage: number;
   consent_analysis: number;
+  consent_contact: number;
+  consent_birthday_reminder: number;
   metadata: string;
 }
 
 export interface CreateMemberData {
   display_name?: string;
   email?: string;
+  phone_number?: string;
   anonymous_id?: string;
   full_name?: string;
   date_of_birth?: string;
   profession?: string;
+  current_activity_or_job_title?: string;
   primary_language?: string;
   additional_languages?: string[];
   role_in_tribe?: string;
   tenure?: string;
-  city_location?: string;
+  current_address_line1?: string;
+  current_address_line2?: string;
+  current_city?: string;
+  current_postal_code?: string;
+  current_country?: string;
   profile_notes?: string;
 }
 
@@ -163,15 +185,18 @@ export async function createMember(data: CreateMemberData): Promise<string> {
   const anonId = data.anonymous_id || uuidv4();
   await runQuery(
     `INSERT INTO members (
-      id, anonymous_id, display_name, email, full_name, date_of_birth, 
-      profession, primary_language, additional_languages, role_in_tribe, 
-      tenure, city_location, profile_notes, status, survey_stage
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'pending', 'none')`,
+      id, anonymous_id, display_name, email, phone_number, full_name, date_of_birth, 
+      profession, current_activity_or_job_title, primary_language, additional_languages, 
+      role_in_tribe, tenure, current_address_line1, current_address_line2, current_city, 
+      current_postal_code, current_country, profile_notes, status, survey_stage
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, 'pending', 'none')`,
     [
-      id, anonId, data.display_name || null, data.email || null,
+      id, anonId, data.display_name || null, data.email || null, data.phone_number || null,
       data.full_name || null, data.date_of_birth || null, data.profession || null,
-      data.primary_language || null, JSON.stringify(data.additional_languages || []),
-      data.role_in_tribe || null, data.tenure || null, data.city_location || null,
+      data.current_activity_or_job_title || null, data.primary_language || null, 
+      JSON.stringify(data.additional_languages || []), data.role_in_tribe || null, 
+      data.tenure || null, data.current_address_line1 || null, data.current_address_line2 || null,
+      data.current_city || null, data.current_postal_code || null, data.current_country || null,
       data.profile_notes || null
     ]
   );
@@ -193,16 +218,24 @@ export interface UpdateMemberData {
   consent_followup?: number;
   consent_storage?: number;
   consent_analysis?: number;
+  consent_contact?: number;
+  consent_birthday_reminder?: number;
   display_name?: string;
   email?: string;
+  phone_number?: string;
   full_name?: string;
   date_of_birth?: string;
   profession?: string;
+  current_activity_or_job_title?: string;
   primary_language?: string;
   additional_languages?: string[];
   role_in_tribe?: string;
   tenure?: string;
-  city_location?: string;
+  current_address_line1?: string;
+  current_address_line2?: string;
+  current_city?: string;
+  current_postal_code?: string;
+  current_country?: string;
   profile_notes?: string;
   metadata?: string;
 }
@@ -214,9 +247,11 @@ export async function updateMember(id: string, data: UpdateMemberData) {
   // Handle simple fields
   const simpleFields = [
     'status', 'survey_stage', 'consent_data', 'consent_followup', 
-    'consent_storage', 'consent_analysis', 'display_name', 'email',
-    'full_name', 'date_of_birth', 'profession', 'primary_language',
-    'role_in_tribe', 'tenure', 'city_location', 'profile_notes', 'metadata'
+    'consent_storage', 'consent_analysis', 'consent_contact', 'consent_birthday_reminder',
+    'display_name', 'email', 'phone_number', 'full_name', 'date_of_birth', 'profession', 
+    'current_activity_or_job_title', 'primary_language', 'role_in_tribe', 'tenure', 
+    'current_address_line1', 'current_address_line2', 'current_city', 'current_postal_code', 
+    'current_country', 'profile_notes', 'metadata'
   ];
   
   simpleFields.forEach(field => {

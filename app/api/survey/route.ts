@@ -180,7 +180,7 @@ export async function POST(request: NextRequest) {
         const { member_id, nominations, relationship_type } = data;
         
         for (const targetId of nominations) {
-          if (targetId !== member_id) {
+          if (targetId !== member_id && !targetId.startsWith('provisional_')) {
             await saveRelationship({
               source_id: member_id,
               target_id: targetId,
@@ -192,6 +192,27 @@ export async function POST(request: NextRequest) {
         }
 
         return NextResponse.json({ status: 'ok' });
+      }
+
+      case 'save_provisional_relationship': {
+        const { member_id, provisional_name, relationship_type } = data;
+        
+        // Create a provisional member
+        const provisionalMember = await createMember({
+          display_name: provisional_name,
+          anonymous_id: `provisional_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        });
+        
+        // Create relationship to provisional member
+        await saveRelationship({
+          source_id: member_id,
+          target_id: provisionalMember,
+          relationship_type,
+          strength: 3,
+          source_confidence: 3
+        });
+
+        return NextResponse.json({ status: 'ok', provisional_id: provisionalMember });
       }
 
       case 'generate_link': {
