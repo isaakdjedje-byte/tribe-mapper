@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { SurveyContext, getContextConfig } from '@/lib/survey/context';
-import { getSurveyQuestions, Question } from '@/lib/survey/questions-new';
+import { getSurveyQuestions, Question } from '@/lib/survey/questions';
 
 interface Survey1ContentProps {
   token: string;
