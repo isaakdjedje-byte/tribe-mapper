@@ -184,21 +184,8 @@ export async function createMember(data: CreateMemberData): Promise<string> {
   const id = uuidv4();
   const anonId = data.anonymous_id || uuidv4();
   await runQuery(
-    `INSERT INTO members (
-      id, anonymous_id, display_name, email, phone_number, full_name, date_of_birth, 
-      profession, current_activity_or_job_title, primary_language, additional_languages, 
-      role_in_tribe, tenure, current_address_line1, current_address_line2, current_city, 
-      current_postal_code, current_country, profile_notes, status, survey_stage
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, 'pending', 'none')`,
-    [
-      id, anonId, data.display_name || null, data.email || null, data.phone_number || null,
-      data.full_name || null, data.date_of_birth || null, data.profession || null,
-      data.current_activity_or_job_title || null, data.primary_language || null, 
-      JSON.stringify(data.additional_languages || []), data.role_in_tribe || null, 
-      data.tenure || null, data.current_address_line1 || null, data.current_address_line2 || null,
-      data.current_city || null, data.current_postal_code || null, data.current_country || null,
-      data.profile_notes || null
-    ]
+    `INSERT INTO members (id, anonymous_id, display_name, email, status, survey_stage) VALUES ($1, $2, $3, $4, 'pending', 'none')`,
+    [id, anonId, data.display_name || null, data.email || null]
   );
   return id;
 }

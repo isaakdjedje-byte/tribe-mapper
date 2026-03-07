@@ -18,8 +18,8 @@ export const CONTEXT_CONFIGS: Record<SurveyContext, ContextConfig> = {
     id: 'friends',
     label: 'Friends',
     labelFr: 'Amis',
-    groupLabel: 'circle of friends',
-    groupLabelFr: 'cercle d\'amis',
+    groupLabel: 'group of friends',
+    groupLabelFr: 'groupe d\'amis',
     warmth: 9,
     tone: 'intimate'
   },
@@ -27,8 +27,8 @@ export const CONTEXT_CONFIGS: Record<SurveyContext, ContextConfig> = {
     id: 'family',
     label: 'Family',
     labelFr: 'Famille',
-    groupLabel: 'family',
-    groupLabelFr: 'famille',
+    groupLabel: 'your family',
+    groupLabelFr: 'ta famille',
     warmth: 8,
     tone: 'intimate'
   },

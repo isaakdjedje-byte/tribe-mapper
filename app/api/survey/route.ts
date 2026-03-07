@@ -54,6 +54,21 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ member });
       }
 
+      case 'get_survey_state': {
+        const { member_id } = data;
+        const member = await getMember(member_id);
+        if (!member) {
+          return NextResponse.json({ error: 'Member not found' }, { status: 404 });
+        }
+        const relationships = await getRelationships(undefined, member_id);
+        const responses = await getSurveyResponses(member_id, 'survey1');
+        return NextResponse.json({ 
+          member,
+          relationships,
+          responses
+        });
+      }
+
       case 'update_member': {
         const { member_id, ...updates } = data;
         await updateMember(member_id, updates);

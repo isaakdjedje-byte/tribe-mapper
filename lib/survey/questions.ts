@@ -122,14 +122,14 @@ function createContextQuestions(context: SurveyContext): {
       section: 'Your Profile',
       sectionFr: 'Ton Profil',
       question: isFriends 
-        ? 'How would you describe your place in this circle of friends?'
+        ? 'How would you describe your place in this group of friends?'
         : isFamily
-        ? 'How would you describe your place in the family?'
+        ? 'How would you describe your role in the family?'
         : 'How would you describe your role in the community?',
       questionFr: isFriends
-        ? 'Comment décrirais-tu ta place dans ce cercle d\'amis ?'
+        ? 'Comment décrirais-tu ta place dans ce groupe d\'amis ?'
         : isFamily
-        ? 'Comment décrirais-tu ta place dans la famille ?'
+        ? 'Comment décrirais-tu ton rôle dans la famille ?'
         : 'Comment décrirais-tu ton rôle dans la communauté ?',
       description: 'What is your natural position or function?',
       descriptionFr: 'Quelle est ta position ou fonction naturelle ?',
@@ -153,14 +153,14 @@ function createContextQuestions(context: SurveyContext): {
       section: 'Your Profile',
       sectionFr: 'Ton Profil',
       question: isFriends
-        ? 'How long have you been part of this circle?'
+        ? 'How long have you been part of this group of friends?'
         : isFamily
-        ? 'How long have you been closely part of this family life?'
+        ? 'How long have you been closely part of this family?'
         : 'How long have you been part of this community?',
       questionFr: isFriends
-        ? 'Depuis combien de temps fais-tu partie de ce cercle ?'
+        ? 'Depuis combien de temps fais-tu partie de ce groupe d\'amis ?'
         : isFamily
-        ? 'Depuis combien de temps participes-tu activement à la vie de famille ?'
+        ? 'Depuis combien de temps fais-tu partie de cette famille ?'
         : 'Depuis combien de temps fais-tu partie de cette communauté ?',
       type: 'single',
       required: false,
@@ -306,8 +306,8 @@ function createContextQuestions(context: SurveyContext): {
       id: 'friends_closest',
       section: 'Your Connections',
       sectionFr: 'Tes Connexions',
-      question: 'Who are the friends in this circle you feel closest to?',
-      questionFr: 'Quels sont les amis de ce cercle auxquels tu te sens le plus proche ?',
+      question: 'Who in this group of friends do you feel closest to?',
+      questionFr: 'À qui dans ce groupe d\'amis te sens-tu le plus proche ?',
       description: 'Select up to 5 people',
       descriptionFr: 'Sélectionne jusqu\'à 5 personnes',
       type: 'nominate',
@@ -356,8 +356,8 @@ function createContextQuestions(context: SurveyContext): {
       id: 'friends_connectors',
       section: 'Your Connections',
       sectionFr: 'Tes Connexions',
-      question: 'Who helps keep people connected in this circle?',
-      questionFr: 'Qui aide à garder les gens connectés dans ce cercle ?',
+      question: 'Who helps keep people connected in this group?',
+      questionFr: 'Qui aide à garder les gens connectés dans ce groupe ?',
       description: 'The people who introduce others and bring the group together',
       descriptionFr: 'Les personnes qui présentent les uns aux autres et rassemblent le groupe',
       type: 'nominate',
@@ -370,8 +370,8 @@ function createContextQuestions(context: SurveyContext): {
       id: 'friends_tension',
       section: 'Your Connections',
       sectionFr: 'Tes Connexions',
-      question: 'Are there any friendships in this circle that sometimes feel strained or complicated?',
-      questionFr: 'Y a-t-il des amitiés dans ce cercle qui se sentent parfois tendues ou compliquées ?',
+      question: 'Are there any friendships in this group that sometimes feel strained or complicated?',
+      questionFr: 'Y a-t-il des amitiés dans ce groupe qui se sentent parfois tendues ou compliquées ?',
       description: 'This is optional and private. Only name people if you feel comfortable.',
       descriptionFr: 'C\'est optionnel et privé. Ne nomme que si tu te sens à l\'aise.',
       type: 'nominate',
@@ -535,10 +535,14 @@ function createContextQuestions(context: SurveyContext): {
     }
   ];
 
-  // REFLECTION MODULE - Shared across contexts
-  const groupLabel = isFriends ? 'this circle of friends' : isFamily ? 'the family' : 'this community';
-  const groupLabelFr = isFriends ? 'ce cercle d\'amis' : isFamily ? 'la famille' : 'cette communauté';
+  // Group labels - updated for proper context-specific wording
+  const groupLabel = isFriends ? 'this group of friends' : isFamily ? 'your family' : 'this community';
+  const groupLabelFr = isFriends ? 'ce groupe d\'amis' : isFamily ? 'ta famille' : 'cette communauté';
 
+  const groupLabelSimple = isFriends ? 'group of friends' : isFamily ? 'family' : 'community';
+  const groupLabelSimpleFr = isFriends ? 'groupe d\'amis' : isFamily ? 'famille' : 'communauté';
+
+  // REFLECTION MODULE - Shared across contexts
   const reflection: Question[] = [
     {
       id: 'reflection_health',

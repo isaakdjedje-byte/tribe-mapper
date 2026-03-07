@@ -30,19 +30,113 @@ export default function Survey1Content({ token, context = 'tribe' }: Survey1Cont
   const relationshipQuestions = questions.filter(q => q.dataTarget === 'relationship');
   const reflectionQuestions = questions.filter(q => q.dataTarget === 'survey_response');
 
-  // Load member data and roster
+  // Load member data and roster - with resume support
   useEffect(() => {
     const init = async () => {
       setMemberId(token);
       try {
-        const res = await fetch('/api/survey', { 
+        // Get full survey state including saved progress
+        const stateRes = await fetch('/api/survey', { 
           method: 'POST', 
           headers: { 'Content-Type': 'application/json' }, 
-          body: JSON.stringify({ action: 'get_or_create_member', anonymous_id: token }) 
+          body: JSON.stringify({ action: 'get_survey_state', member_id: token }) 
         });
-        const data = await res.json();
-        if (data.member?.status === 'completed') {
+        
+        if (!stateRes.ok) {
+          // Member not found - treat as new user
+          setIsLoading(false);
+          return;
+        }
+        
+        const stateData = await stateRes.json();
+        if (stateData.error) {
+          // Member lookup failed - treat as new user
+          setIsLoading(false);
+          return;
+        }
+        
+        const { member, relationships, responses } = stateData;
+        
+        if (member?.status === 'completed') {
           setCurrentSection('completed');
+          setIsLoading(false);
+          return;
+        }
+
+        // Restore profile data from member record
+        if (member) {
+          const restoredAnswers: Record<string, any> = {};
+          profileQuestions.forEach(q => {
+            if (q.profileField && member[q.profileField] !== undefined && member[q.profileField] !== null) {
+              // Handle consent checkboxes
+              if (q.profileField.startsWith('consent_')) {
+                restoredAnswers[q.id] = member[q.profileField] === 1;
+              } else {
+                restoredAnswers[q.id] = member[q.profileField];
+              }
+            }
+          });
+          setAnswers(restoredAnswers);
+        }
+
+        // Restore relationships from DB
+        if (relationships && relationships.length > 0) {
+          const relationshipAnswers: Record<string, string[]> = {};
+          relationships.forEach((rel: any) => {
+            const targetId = rel.source_id === token ? rel.target_id : rel.source_id;
+            const relType = rel.relationship_type;
+            if (targetId && relType) {
+              if (!relationshipAnswers[relType]) {
+                relationshipAnswers[relType] = [];
+              }
+              relationshipAnswers[relType].push(targetId);
+            }
+          });
+          
+          // Build all answers at once
+          const relRestoredAnswers: Record<string, string[]> = {};
+          relationshipQuestions.forEach(q => {
+            if (q.relationshipType) {
+              const relType = q.relationshipType;
+              if (relationshipAnswers[relType]) {
+                relRestoredAnswers[q.id] = relationshipAnswers[relType];
+              }
+            }
+          });
+          
+          // Apply all at once
+          if (Object.keys(relRestoredAnswers).length > 0) {
+            setAnswers(prev => ({ ...prev, ...relRestoredAnswers }));
+          }
+        }
+
+        // Restore reflection responses from DB
+        if (responses && responses.length > 0) {
+          const reflectionRestoredAnswers: Record<string, any> = {};
+          responses.forEach((resp: any) => {
+            let answerValue = resp.answer_value;
+            try {
+              answerValue = JSON.parse(answerValue);
+            } catch (e) {}
+            reflectionRestoredAnswers[resp.question_id] = answerValue;
+          });
+          setAnswers(prev => ({ ...prev, ...reflectionRestoredAnswers }));
+        }
+
+        // Determine current section based on survey_stage
+        const stage = member?.survey_stage;
+        if (stage === 'reflection' || stage === 'survey1') {
+          setCurrentSection('reflection');
+        } else if (stage === 'relationships') {
+          setCurrentSection('relationships');
+        } else if (stage === 'profile') {
+          setCurrentSection('profile');
+        } else {
+          // Default to profile if profile data exists, otherwise consent
+          const hasProfileData = profileQuestions.some(q => 
+            q.profileField && member && member[q.profileField] !== undefined && member[q.profileField] !== null
+          );
+          setCurrentSection(hasProfileData ? 'profile' : 'consent');
         }
         
         const rosterRes = await fetch('/api/survey', { 
@@ -101,6 +195,7 @@ export default function Survey1Content({ token, context = 'tribe' }: Survey1Cont
         body: JSON.stringify({
           action: 'update_member',
           member_id: memberId,
+          survey_stage: 'relationships',
           ...profileData
         })
       });
@@ -153,6 +248,17 @@ export default function Survey1Content({ token, context = 'tribe' }: Survey1Cont
           }
         }
       }
+
+      // Update survey stage
+      await fetch('/api/survey', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update_member',
+          member_id: memberId,
+          survey_stage: 'reflection'
+        })
+      });
 
       setCurrentSection('reflection');
     } catch (e) {
@@ -496,7 +602,19 @@ export default function Survey1Content({ token, context = 'tribe' }: Survey1Cont
         </p>
         <button 
           className="btn btn-primary" 
-          onClick={() => setCurrentSection('profile')}
+          onClick={async () => {
+            // Track that user has started the survey
+            await fetch('/api/survey', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'update_member',
+                member_id: memberId,
+                survey_stage: 'profile'
+              })
+            });
+            setCurrentSection('profile');
+          }}
           style={{ width: '100%' }}
         >
           {language === 'fr' ? t.survey?.consent?.continueFr : t.survey?.consent?.continue}
