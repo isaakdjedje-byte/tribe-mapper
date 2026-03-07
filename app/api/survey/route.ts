@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { initializeDatabase, createMember, getMemberByAnonymousId, updateMember, saveSurveyResponse, getAllMembers, getAllRelationships, getAllResponsesWithMembers, getSurveyResponses, getMemberCount, getSurveyStats, saveRelationship, getInferredProperties, saveInferredProperty, getTribeSignals, saveTribeSignal, getMember, getRelationships, isConfigured } from '@/lib/db';
+import { initializeDatabase, createMember, getMemberByAnonymousId, updateMember, saveSurveyResponse, getAllMembers, getAllRelationships, getAllResponsesWithMembers, getSurveyResponses, getMemberCount, getSurveyStats, saveRelationship, getInferredProperties, saveInferredProperty, getTribeSignals, saveTribeSignal, getMember, getRelationships, isConfigured, deleteMemberData, createSurveyLink, getSurveyLinks, deactivateSurveyLink, reactivateSurveyLink, deleteSurveyLink, deleteSurveyResponse, deleteRelationship } from '@/lib/db';
 import { analyzeTribe } from '@/lib/analytics/engine';
 import { verifyAdminSession } from '@/lib/auth';
 
@@ -12,7 +12,17 @@ const adminActions = [
   'get_survey2_triggers',
   'trigger_survey2',
   'generate_link',
-  'get_relationships'
+  'get_relationships',
+  'get_survey_links',
+  'deactivate_link',
+  'reactivate_link',
+  'delete_link',
+  'delete_member',
+  'delete_response',
+  'delete_relationship',
+  'get_all_members',
+  'get_all_responses',
+  'get_all_relationships'
 ];
 
 export async function POST(request: NextRequest) {
@@ -231,17 +241,75 @@ export async function POST(request: NextRequest) {
       }
 
       case 'generate_link': {
-        const { count } = data;
+        const { count, context } = data;
         const links: string[] = [];
         
         for (let i = 0; i < (count || 1); i++) {
           const anonymous_id = `tm_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
           const memberId = await createMember({ anonymous_id });
           await updateMember(memberId, { status: 'active' });
-          links.push(`/survey/${memberId}`);
+          const linkToken = `/survey/${memberId}`;
+          await createSurveyLink(memberId, context || 'tribe');
+          links.push(linkToken);
         }
 
         return NextResponse.json({ links });
+      }
+
+      case 'get_survey_links': {
+        const links = await getSurveyLinks();
+        return NextResponse.json({ links });
+      }
+
+      case 'deactivate_link': {
+        const { link_id } = data;
+        await deactivateSurveyLink(link_id);
+        return NextResponse.json({ status: 'ok' });
+      }
+
+      case 'reactivate_link': {
+        const { link_id } = data;
+        await reactivateSurveyLink(link_id);
+        return NextResponse.json({ status: 'ok' });
+      }
+
+      case 'delete_link': {
+        const { link_id } = data;
+        await deleteSurveyLink(link_id);
+        return NextResponse.json({ status: 'ok' });
+      }
+
+      case 'delete_member': {
+        const { member_id } = data;
+        await deleteMemberData(member_id);
+        return NextResponse.json({ status: 'ok' });
+      }
+
+      case 'delete_response': {
+        const { response_id } = data;
+        await deleteSurveyResponse(response_id);
+        return NextResponse.json({ status: 'ok' });
+      }
+
+      case 'delete_relationship': {
+        const { relationship_id } = data;
+        await deleteRelationship(relationship_id);
+        return NextResponse.json({ status: 'ok' });
+      }
+
+      case 'get_all_members': {
+        const members = await getAllMembers();
+        return NextResponse.json({ members });
+      }
+
+      case 'get_all_responses': {
+        const responses = await getAllResponsesWithMembers();
+        return NextResponse.json({ responses });
+      }
+
+      case 'get_all_relationships': {
+        const relationships = await getAllRelationships();
+        return NextResponse.json({ relationships });
       }
 
       case 'trigger_survey2': {

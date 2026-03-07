@@ -120,11 +120,25 @@ export async function initializeDatabase() {
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );`;
 
+  await sql`CREATE TABLE IF NOT EXISTS survey_links (
+    id TEXT PRIMARY KEY,
+    token TEXT UNIQUE NOT NULL,
+    context TEXT DEFAULT 'tribe',
+    status TEXT DEFAULT 'active',
+    member_id TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deactivated_at TIMESTAMP,
+    submitted_at TIMESTAMP
+  );`;
+
   await sql`CREATE INDEX IF NOT EXISTS idx_responses_member ON survey_responses(member_id);`;
   await sql`CREATE INDEX IF NOT EXISTS idx_responses_type ON survey_responses(survey_type);`;
   await sql`CREATE INDEX IF NOT EXISTS idx_relationships_source ON relationships(source_id);`;
   await sql`CREATE INDEX IF NOT EXISTS idx_relationships_target ON relationships(target_id);`;
   await sql`CREATE INDEX IF NOT EXISTS idx_inferred_member ON inferred_properties(member_id);`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_survey_links_token ON survey_links(token);`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_survey_links_status ON survey_links(status);`;
 }
 
 export interface MemberRow {
@@ -435,4 +449,71 @@ export async function deleteMemberData(memberId: string) {
   await runQuery('DELETE FROM relationships WHERE source_id = $1 OR target_id = $1', [memberId]);
   await runQuery('DELETE FROM inferred_properties WHERE member_id = $1', [memberId]);
   await runQuery('DELETE FROM members WHERE id = $1', [memberId]);
+}
+
+export interface SurveyLinkRow {
+  id: string;
+  token: string;
+  context: string;
+  status: string;
+  member_id: string | null;
+  created_at: Date;
+  updated_at: Date;
+  deactivated_at: Date | null;
+  submitted_at: Date | null;
+}
+
+export async function createSurveyLink(token: string, context: string = 'tribe'): Promise<string> {
+  const id = uuidv4();
+  await runQuery(
+    `INSERT INTO survey_links (id, token, context, status) VALUES ($1, $2, $3, 'active')`,
+    [id, token, context]
+  );
+  return id;
+}
+
+export async function getSurveyLinks(): Promise<SurveyLinkRow[]> {
+  return runQuery<SurveyLinkRow>(`
+    SELECT sl.*, m.display_name as member_name
+    FROM survey_links sl
+    LEFT JOIN members m ON sl.member_id = m.id
+    ORDER BY sl.created_at DESC
+  `);
+}
+
+export async function getSurveyLinkByToken(token: string): Promise<SurveyLinkRow | undefined> {
+  return runSingle<SurveyLinkRow>(`SELECT * FROM survey_links WHERE token = $1`, [token]);
+}
+
+export async function deactivateSurveyLink(id: string) {
+  await runQuery(
+    `UPDATE survey_links SET status = 'deactivated', deactivated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+    [id]
+  );
+}
+
+export async function reactivateSurveyLink(id: string) {
+  await runQuery(
+    `UPDATE survey_links SET status = 'active', deactivated_at = NULL WHERE id = $1`,
+    [id]
+  );
+}
+
+export async function markSurveyLinkSubmitted(linkId: string) {
+  await runQuery(
+    `UPDATE survey_links SET status = 'completed', submitted_at = CURRENT_TIMESTAMP WHERE id = $1`,
+    [linkId]
+  );
+}
+
+export async function deleteSurveyLink(id: string) {
+  await runQuery(`DELETE FROM survey_links WHERE id = $1`, [id]);
+}
+
+export async function deleteSurveyResponse(responseId: string) {
+  await runQuery(`DELETE FROM survey_responses WHERE id = $1`, [responseId]);
+}
+
+export async function deleteRelationship(relId: string) {
+  await runQuery(`DELETE FROM relationships WHERE id = $1`, [relId]);
 }
