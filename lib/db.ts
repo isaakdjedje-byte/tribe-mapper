@@ -517,3 +517,102 @@ export async function deleteSurveyResponse(responseId: string) {
 export async function deleteRelationship(relId: string) {
   await runQuery(`DELETE FROM relationships WHERE id = $1`, [relId]);
 }
+
+export interface SubmissionGroup {
+  member_id: string;
+  survey_type: string;
+  display_name: string | null;
+  anonymous_id: string | null;
+  created_at: Date;
+  response_count: number;
+}
+
+export async function getAllSubmissions(): Promise<SubmissionGroup[]> {
+  return runQuery<SubmissionGroup>(`
+    SELECT 
+      r.member_id,
+      r.survey_type,
+      m.display_name,
+      m.anonymous_id,
+      MAX(r.created_at) as created_at,
+      COUNT(*) as response_count
+    FROM survey_responses r
+    JOIN members m ON r.member_id = m.id
+    GROUP BY r.member_id, r.survey_type, m.display_name, m.anonymous_id
+    ORDER BY MAX(r.created_at) DESC
+  `);
+}
+
+export async function getSubmissionsByMember(memberId: string): Promise<SubmissionGroup[]> {
+  return runQuery<SubmissionGroup>(`
+    SELECT 
+      r.member_id,
+      r.survey_type,
+      m.display_name,
+      m.anonymous_id,
+      MAX(r.created_at) as created_at,
+      COUNT(*) as response_count
+    FROM survey_responses r
+    JOIN members m ON r.member_id = m.id
+    WHERE r.member_id = $1
+    GROUP BY r.member_id, r.survey_type, m.display_name, m.anonymous_id
+    ORDER BY MAX(r.created_at) DESC
+  `, [memberId]);
+}
+
+export interface SubmissionDetail {
+  member_id: string;
+  survey_type: string;
+  display_name: string;
+  anonymous_id: string;
+  submitted_at: Date;
+  profile_responses: { question_id: string; answer_value: string }[];
+  relationship_responses: { question_id: string; answer_value: string }[];
+  reflection_responses: { question_id: string; answer_value: string }[];
+}
+
+export async function getSubmissionDetail(memberId: string, surveyType: string): Promise<SubmissionDetail | undefined> {
+  const member = await getMember(memberId);
+  const rawResponses = await getSurveyResponses(memberId, surveyType);
+  const responses = rawResponses as { question_id: string; answer_value: string; created_at: Date }[];
+  
+  if (!member) return undefined;
+  
+  const profile_responses: { question_id: string; answer_value: string }[] = [];
+  const relationship_responses: { question_id: string; answer_value: string }[] = [];
+  const reflection_responses: { question_id: string; answer_value: string }[] = [];
+  
+  responses.forEach(r => {
+    const parsed = tryParseJson(r.answer_value);
+    const entry = { question_id: r.question_id, answer_value: typeof parsed === 'string' ? parsed : r.answer_value };
+    
+    if (r.question_id.includes('reflection') || r.question_id === 'reflection_health' || r.question_id === 'reflection_connected' || r.question_id === 'reflection_missing') {
+      reflection_responses.push(entry);
+    } else if (r.question_id.includes('friends_') || r.question_id.includes('family_') || r.question_id.includes('tribe_')) {
+      relationship_responses.push(entry);
+    } else {
+      profile_responses.push(entry);
+    }
+  });
+  
+  const submitted_at = responses.length > 0 ? responses.reduce((max, r) => r.created_at > max ? r.created_at : max, responses[0].created_at) : new Date();
+  
+  return {
+    member_id: memberId,
+    survey_type: surveyType,
+    display_name: member.display_name || 'Anonymous',
+    anonymous_id: member.anonymous_id || '',
+    submitted_at,
+    profile_responses,
+    relationship_responses,
+    reflection_responses
+  };
+}
+
+function tryParseJson(str: string): any {
+  try {
+    return JSON.parse(str);
+  } catch {
+    return str;
+  }
+}

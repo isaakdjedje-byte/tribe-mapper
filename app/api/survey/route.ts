@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { initializeDatabase, createMember, getMemberByAnonymousId, updateMember, saveSurveyResponse, getAllMembers, getAllRelationships, getAllResponsesWithMembers, getSurveyResponses, getMemberCount, getSurveyStats, saveRelationship, getInferredProperties, saveInferredProperty, getTribeSignals, saveTribeSignal, getMember, getRelationships, isConfigured, deleteMemberData, createSurveyLink, getSurveyLinks, deactivateSurveyLink, reactivateSurveyLink, deleteSurveyLink, deleteSurveyResponse, deleteRelationship } from '@/lib/db';
+import { initializeDatabase, createMember, getMemberByAnonymousId, updateMember, saveSurveyResponse, getAllMembers, getAllRelationships, getAllResponsesWithMembers, getSurveyResponses, getMemberCount, getSurveyStats, saveRelationship, getInferredProperties, saveInferredProperty, getTribeSignals, saveTribeSignal, getMember, getRelationships, isConfigured, deleteMemberData, createSurveyLink, getSurveyLinks, deactivateSurveyLink, reactivateSurveyLink, deleteSurveyLink, deleteSurveyResponse, deleteRelationship, getAllSubmissions, getSubmissionsByMember, getSubmissionDetail } from '@/lib/db';
 import { analyzeTribe } from '@/lib/analytics/engine';
 import { verifyAdminSession } from '@/lib/auth';
 
@@ -22,7 +22,10 @@ const adminActions = [
   'delete_relationship',
   'get_all_members',
   'get_all_responses',
-  'get_all_relationships'
+  'get_all_relationships',
+  'get_all_submissions',
+  'get_submissions_by_member',
+  'get_submission_detail'
 ];
 
 export async function POST(request: NextRequest) {
@@ -310,6 +313,26 @@ export async function POST(request: NextRequest) {
       case 'get_all_relationships': {
         const relationships = await getAllRelationships();
         return NextResponse.json({ relationships });
+      }
+
+      case 'get_all_submissions': {
+        const submissions = await getAllSubmissions();
+        return NextResponse.json({ submissions });
+      }
+
+      case 'get_submissions_by_member': {
+        const { member_id } = data;
+        const submissions = await getSubmissionsByMember(member_id);
+        return NextResponse.json({ submissions });
+      }
+
+      case 'get_submission_detail': {
+        const { member_id, survey_type } = data;
+        const detail = await getSubmissionDetail(member_id, survey_type);
+        if (!detail) {
+          return NextResponse.json({ error: 'Submission not found' }, { status: 404 });
+        }
+        return NextResponse.json({ detail });
       }
 
       case 'trigger_survey2': {

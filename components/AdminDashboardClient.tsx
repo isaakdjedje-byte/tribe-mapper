@@ -34,6 +34,59 @@ interface Member {
   consent_birthday_reminder: number;
 }
 
+interface SubmissionGroup {
+  member_id: string;
+  survey_type: string;
+  display_name: string | null;
+  anonymous_id: string | null;
+  created_at: string;
+  response_count: number;
+}
+
+interface SubmissionDetail {
+  member_id: string;
+  survey_type: string;
+  display_name: string;
+  anonymous_id: string;
+  submitted_at: string;
+  profile_responses: { question_id: string; answer_value: string }[];
+  relationship_responses: { question_id: string; answer_value: string }[];
+  reflection_responses: { question_id: string; answer_value: string }[];
+}
+
+interface Relationship {
+  id: string;
+  source_id: string;
+  target_id: string;
+  relationship_type: string;
+  strength: number;
+  direction: string;
+  source_confidence: number;
+  created_at: string;
+  source_name: string | null;
+  target_name: string | null;
+}
+
+interface SurveyLink {
+  id: string;
+  token: string;
+  context: string;
+  status: string;
+  member_id: string | null;
+  created_at: string;
+  updated_at: string;
+  deactivated_at: string | null;
+  submitted_at: string | null;
+  member_name: string | null;
+}
+
+interface DashboardStats {
+  totalMembers: number;
+  activeMembers: number;
+  completedMembers: number;
+  pendingMembers: number;
+}
+
 interface SurveyResponse {
   id: string;
   member_id: string;
@@ -84,12 +137,13 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [activeTab, setActiveTab] = useState<'members' | 'responses' | 'relationships' | 'links' | 'settings'>('members');
   const [members, setMembers] = useState<Member[]>([]);
-  const [responses, setResponses] = useState<SurveyResponse[]>([]);
+  const [submissions, setSubmissions] = useState<SubmissionGroup[]>([]);
   const [relationships, setRelationships] = useState<Relationship[]>([]);
   const [surveyLinks, setSurveyLinks] = useState<SurveyLink[]>([]);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
-  const [selectedResponse, setSelectedResponse] = useState<SurveyResponse | null>(null);
+  const [selectedSubmission, setSelectedSubmission] = useState<SubmissionDetail | null>(null);
   const [selectedRelationship, setSelectedRelationship] = useState<Relationship | null>(null);
+  const [memberSubmissions, setMemberSubmissions] = useState<SubmissionGroup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [linkCount, setLinkCount] = useState(1);
   const [generatedLinks, setGeneratedLinks] = useState<string[]>([]);
@@ -104,25 +158,56 @@ export default function AdminDashboard() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [statsRes, membersRes, responsesRes, relationshipsRes, linksRes] = await Promise.all([
+      const [statsRes, membersRes, submissionsRes, relationshipsRes, linksRes] = await Promise.all([
         fetch('/api/survey', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'get_dashboard_stats' }) }),
         fetch('/api/survey', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'get_all_members' }) }),
-        fetch('/api/survey', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'get_all_responses' }) }),
+        fetch('/api/survey', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'get_all_submissions' }) }),
         fetch('/api/survey', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'get_all_relationships' }) }),
         fetch('/api/survey', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'get_survey_links' }) }),
       ]);
       const statsData = await statsRes.json();
       const membersData = await membersRes.json();
-      const responsesData = await responsesRes.json();
+      const submissionsData = await submissionsRes.json();
       const relationshipsData = await relationshipsRes.json();
       const linksData = await linksRes.json();
       setStats(statsData);
       setMembers(membersData.members || []);
-      setResponses(responsesData.responses || []);
+      setSubmissions(submissionsData.submissions || []);
       setRelationships(relationshipsData.relationships || []);
       setSurveyLinks(linksData.links || []);
     } catch (e) { console.error('Load error:', e); }
     setIsLoading(false);
+  };
+
+  const loadMemberSubmissions = async (memberId: string) => {
+    try {
+      const res = await fetch('/api/survey', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'get_submissions_by_member', member_id: memberId }) });
+      const data = await res.json();
+      setMemberSubmissions(data.submissions || []);
+    } catch (e) { console.error('Load member submissions error:', e); }
+  };
+
+  const loadSubmissionDetail = async (memberId: string, surveyType: string) => {
+    try {
+      const res = await fetch('/api/survey', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'get_submission_detail', member_id: memberId, survey_type: surveyType }) });
+      const data = await res.json();
+      if (data.detail) {
+        setSelectedSubmission(data.detail);
+      }
+    } catch (e) { console.error('Load submission detail error:', e); }
+  };
+
+  const openSubmission = (sub: SubmissionGroup) => {
+    loadSubmissionDetail(sub.member_id, sub.survey_type);
+  };
+
+  const openMemberFromSubmission = (memberId: string) => {
+    const member = members.find(m => m.id === memberId);
+    if (member) {
+      setSelectedMember(member);
+      loadMemberSubmissions(memberId);
+      setSelectedSubmission(null);
+    }
   };
 
   const generateLinks = async () => {
@@ -245,7 +330,7 @@ export default function AdminDashboard() {
                 </thead>
                 <tbody>
                   {filteredMembers.map(member => (
-                    <tr key={member.id} onClick={() => setSelectedMember(member)} style={{ cursor: 'pointer', background: selectedMember?.id === member.id ? 'var(--primary-subtle)' : undefined }}>
+                    <tr key={member.id} onClick={() => { setSelectedMember(member); loadMemberSubmissions(member.id); }} style={{ cursor: 'pointer', background: selectedMember?.id === member.id ? 'var(--primary-subtle)' : undefined }}>
                       <td style={{ fontWeight: 500 }}>{member.display_name || member.full_name || 'Anonymous'}</td>
                       <td className="text-muted">{member.email || '—'}</td>
                       <td><span className={`status ${getStatusClass(member.status)}`}>{member.status}</span></td>
@@ -295,6 +380,32 @@ export default function AdminDashboard() {
                   <span className="text-muted">ID</span>
                   <code style={{ fontSize: '0.7rem' }}>{selectedMember.id.slice(0, 8)}...</code>
                 </div>
+
+                {memberSubmissions.length > 0 && (
+                  <div style={{ marginTop: 'var(--space-4)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--border)' }}>
+                    <h4 style={{ fontSize: '0.875rem', marginBottom: 'var(--space-2)' }}>Survey Submissions</h4>
+                    {memberSubmissions.map((sub, idx) => (
+                      <div 
+                        key={idx} 
+                        onClick={() => loadSubmissionDetail(selectedMember.id, sub.survey_type)}
+                        style={{ 
+                          padding: 'var(--space-2)', 
+                          marginBottom: 'var(--space-1)', 
+                          background: 'var(--bg)', 
+                          borderRadius: 'var(--radius)',
+                          cursor: 'pointer',
+                          fontSize: '0.8rem'
+                        }}
+                      >
+                        <span className="status status-active">{sub.survey_type}</span>
+                        <span className="text-muted" style={{ marginLeft: 'var(--space-2)' }}>
+                          {sub.response_count} responses - {sub.created_at ? new Date(sub.created_at).toLocaleDateString() : ''}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <div style={{ marginTop: 'var(--space-4)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--border)' }}>
                   <button className="btn btn-small" style={{ background: 'var(--danger)', color: 'white' }} onClick={() => setConfirmDelete({ type: 'member', id: selectedMember.id, name: selectedMember.display_name || 'Member' })}>
                     Delete Member
@@ -309,26 +420,24 @@ export default function AdminDashboard() {
       {activeTab === 'responses' && (
         <div className="flex gap-4">
           <div style={{ flex: 1 }}>
-            <h3 className="mb-3">Survey Responses ({responses.length})</h3>
+            <h3 className="mb-3">Survey Submissions ({submissions.length})</h3>
             <div className="table-wrap">
               <table>
                 <thead>
                   <tr>
                     <th>Member</th>
-                    <th>Survey</th>
-                    <th>Question</th>
-                    <th>Answer</th>
-                    <th>Date</th>
+                    <th>Survey Type</th>
+                    <th>Responses</th>
+                    <th>Submitted</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {responses.slice(0, 100).map(resp => (
-                    <tr key={resp.id} onClick={() => setSelectedResponse(resp)} style={{ cursor: 'pointer', background: selectedResponse?.id === resp.id ? 'var(--primary-subtle)' : undefined }}>
-                      <td>{resp.display_name || resp.anonymous_id?.slice(0, 8) || 'Anonymous'}</td>
-                      <td><span className="status status-active">{resp.survey_type}</span></td>
-                      <td className="text-muted" style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>{resp.question_id}</td>
-                      <td style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>{resp.answer_value?.substring(0, 50)}{resp.answer_value && resp.answer_value.length > 50 ? '...' : ''}</td>
-                      <td className="text-muted">{resp.created_at ? new Date(resp.created_at).toLocaleDateString() : '—'}</td>
+                  {submissions.map((sub, idx) => (
+                    <tr key={`${sub.member_id}-${sub.survey_type}-${idx}`} onClick={() => openSubmission(sub)} style={{ cursor: 'pointer', background: selectedSubmission?.member_id === sub.member_id && selectedSubmission?.survey_type === sub.survey_type ? 'var(--primary-subtle)' : undefined }}>
+                      <td style={{ fontWeight: 500 }}>{sub.display_name || sub.anonymous_id?.slice(0, 8) || 'Anonymous'}</td>
+                      <td><span className="status status-active">{sub.survey_type}</span></td>
+                      <td>{sub.response_count} answers</td>
+                      <td className="text-muted">{sub.created_at ? new Date(sub.created_at).toLocaleDateString() : '—'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -336,24 +445,62 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {selectedResponse && (
-            <div style={{ width: 350, borderLeft: '1px solid var(--border)', paddingLeft: 'var(--space-4)', marginLeft: 'var(--space-4)' }}>
+          {selectedSubmission && (
+            <div style={{ width: 450, borderLeft: '1px solid var(--border)', paddingLeft: 'var(--space-4)', marginLeft: 'var(--space-4)', maxHeight: '80vh', overflow: 'auto' }}>
               <div className="flex justify-between items-center mb-3">
-                <h3>Response Details</h3>
-                <button className="btn btn-small" onClick={() => setSelectedResponse(null)}>×</button>
+                <h3>Submission Details</h3>
+                <button className="btn btn-small" onClick={() => setSelectedSubmission(null)}>×</button>
               </div>
-              <div style={{ fontSize: '0.875rem', display: 'grid', gap: 'var(--space-2)' }}>
-                <div><span className="text-muted">ID:</span> <code>{selectedResponse.id.slice(0, 12)}...</code></div>
-                <div><span className="text-muted">Member:</span> {selectedResponse.display_name || selectedResponse.anonymous_id}</div>
-                <div><span className="text-muted">Survey:</span> {selectedResponse.survey_type}</div>
-                <div><span className="text-muted">Question:</span> {selectedResponse.question_id}</div>
-                <div><span className="text-muted">Answer:</span></div>
-                <pre style={{ fontSize: '0.75rem', background: 'var(--bg)', padding: 'var(--space-2)', borderRadius: 'var(--radius)', overflow: 'auto' }}>{selectedResponse.answer_value}</pre>
-                <div><span className="text-muted">Created:</span> {selectedResponse.created_at ? new Date(selectedResponse.created_at).toLocaleString() : '—'}</div>
-                <button className="btn btn-small mt-3" style={{ background: 'var(--danger)', color: 'white' }} onClick={() => setConfirmDelete({ type: 'response', id: selectedResponse.id, name: 'Response' })}>
-                  Delete Response
-                </button>
+              
+              <div style={{ fontSize: '0.875rem', marginBottom: 'var(--space-4)' }}>
+                <div className="flex gap-2 mb-3">
+                  <button className="btn btn-small" onClick={() => openMemberFromSubmission(selectedSubmission.member_id)}>
+                    View Member
+                  </button>
+                </div>
+                <div><span className="text-muted">Member:</span> <strong>{selectedSubmission.display_name}</strong></div>
+                <div><span className="text-muted">Survey:</span> {selectedSubmission.survey_type}</div>
+                <div><span className="text-muted">Submitted:</span> {selectedSubmission.submitted_at ? new Date(selectedSubmission.submitted_at).toLocaleString() : '—'}</div>
               </div>
+
+              {selectedSubmission.profile_responses.length > 0 && (
+                <div style={{ marginBottom: 'var(--space-4)' }}>
+                  <h4 style={{ fontSize: '0.875rem', marginBottom: 'var(--space-2)', paddingBottom: 'var(--space-2)', borderBottom: '1px solid var(--border)' }}>Profile</h4>
+                  {selectedSubmission.profile_responses.map((r, i) => (
+                    <div key={i} style={{ fontSize: '0.8rem', marginBottom: 'var(--space-1)' }}>
+                      <span className="text-muted">{r.question_id}:</span> {String(r.answer_value).substring(0, 100)}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {selectedSubmission.relationship_responses.length > 0 && (
+                <div style={{ marginBottom: 'var(--space-4)' }}>
+                  <h4 style={{ fontSize: '0.875rem', marginBottom: 'var(--space-2)', paddingBottom: 'var(--space-2)', borderBottom: '1px solid var(--border)' }}>Relationships / Nominations</h4>
+                  {selectedSubmission.relationship_responses.map((r, i) => {
+                    let parsed: any = r.answer_value;
+                    try { parsed = JSON.parse(r.answer_value); } catch {}
+                    const names = Array.isArray(parsed) ? parsed : [];
+                    return (
+                      <div key={i} style={{ fontSize: '0.8rem', marginBottom: 'var(--space-1)' }}>
+                        <span className="text-muted">{r.question_id}:</span> {names.length > 0 ? names.join(', ') : 'None'}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {selectedSubmission.reflection_responses.length > 0 && (
+                <div style={{ marginBottom: 'var(--space-4)' }}>
+                  <h4 style={{ fontSize: '0.875rem', marginBottom: 'var(--space-2)', paddingBottom: 'var(--space-2)', borderBottom: '1px solid var(--border)' }}>Reflection</h4>
+                  {selectedSubmission.reflection_responses.map((r, i) => (
+                    <div key={i} style={{ fontSize: '0.8rem', marginBottom: 'var(--space-2)' }}>
+                      <span className="text-muted">{r.question_id}:</span>
+                      <div style={{ marginTop: '2px', paddingLeft: 'var(--space-2)', borderLeft: '2px solid var(--primary)' }}>{String(r.answer_value)}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
